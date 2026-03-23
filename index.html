@@ -529,15 +529,16 @@
      JAVASCRIPT
 ══════════════════════════════════════════════════════════════ -->
 <script>
-// ── Firebase config (hardcoded) ──────────────────────────────
+// ── Firebase config — injected by GitHub Actions at deploy time ──
+// These placeholders are replaced with real values from GitHub Secrets.
+// The actual keys are NEVER stored in this file or in the repository.
 const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyAfmM3EW97sqsj866DUjA_VLCw6eA9mV9M",
-  authDomain:        "ib-program-tracker.firebaseapp.com",
-  projectId:         "ib-program-tracker",
-  storageBucket:     "ib-program-tracker.firebasestorage.app",
-  messagingSenderId: "398602025748",
-  appId:             "1:398602025748:web:3f02ffbb84b75b563ba001",
-  measurementId:     "G-2DT25QNWFH"
+  apiKey:            "%%FIREBASE_API_KEY%%",
+  authDomain:        "%%FIREBASE_AUTH_DOMAIN%%",
+  projectId:         "%%FIREBASE_PROJECT_ID%%",
+  storageBucket:     "%%FIREBASE_STORAGE_BUCKET%%",
+  messagingSenderId: "%%FIREBASE_MESSAGING_SENDER_ID%%",
+  appId:             "%%FIREBASE_APP_ID%%"
 };
 
 // ── Init Firebase ────────────────────────────────────────────
