@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IB Program Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: { glass: '0 8px 32px rgba(31, 38, 135, 0.18)' },
+          colors: { slatex: '#0f172a' },
+          keyframes: {
+            fadeUp: {
+              '0%': { opacity: '0', transform: 'translateY(8px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+          },
+          animation: { fadeUp: 'fadeUp .25s ease-out' }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Firebase SDKs (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      background:
+        radial-gradient(circle at top left,  rgba(99,102,241,0.25), transparent 30%),
+        radial-gradient(circle at top right, rgba(16,185,129,0.18),  transparent 28%),
+        radial-gradient(circle at bottom,    rgba(59,130,246,0.18),  transparent 32%),
+        linear-gradient(135deg, #0f172a 0%, #111827 45%, #1e293b 100%);
+      min-height: 100vh;
+    }
+    .glass        { background:rgba(255,255,255,0.08);  backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border:1px solid rgba(255,255,255,0.12); box-shadow:0 8px 32px rgba(15,23,42,0.28); }
+    .glass-strong { background:rgba(255,255,255,0.12);  backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px); border:1px solid rgba(255,255,255,0.16); box-shadow:0 12px 36px rgba(15,23,42,0.34); }
+    .scrollbar-thin::-webkit-scrollbar       { width:8px; height:8px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:999px; }
+    .modal-open { overflow:hidden; }
+    select       { color:#f8fafc; background-color:rgba(255,255,255,0.10); }
+    select option{ color:#0f172a; background:#e5e7eb; }
+
+    /* ── Auth screen ── */
+    #authScreen {
+      display:flex; align-items:center; justify-content:center;
+      min-height:100vh; padding:1.5rem;
+    }
+    #appScreen { display:none; }
+
+    /* ── Sync panel collapse ── */
+    #syncPanelBody { display:grid; grid-template-rows:1fr; transition:grid-template-rows .3s ease, opacity .3s ease; opacity:1; }
+    #syncPanelBody.collapsed { grid-template-rows:0fr; opacity:0; }
+    #syncPanelBody > div { overflow:hidden; }
+
+    /* ── Sync dot ── */
+    .sync-dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+    .sync-dot.live       { background:#34d399; box-shadow:0 0 6px #34d399aa; }
+    .sync-dot.connecting { background:#fbbf24; animation:pulse 1s ease-in-out infinite; }
+    .sync-dot.offline    { background:#94a3b8; }
+    .sync-dot.error      { background:#f87171; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    /* ── Subject picker chips ── */
+    .subject-chip {
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      border-radius: 999px;
+      padding: .4rem .9rem;
+      font-size: .8rem;
+      transition: all .15s;
+      user-select: none;
+      color: rgba(255,255,255,0.7);
+    }
+    .subject-chip:hover { background: rgba(255,255,255,0.12); color:#fff; }
+    .subject-chip.selected {
+      background: rgba(99,102,241,0.35);
+      border-color: rgba(129,140,248,0.6);
+      color: #c7d2fe;
+    }
+
+    /* ── Auth tab active ── */
+    .auth-tab-active   { background:rgba(255,255,255,0.15); color:#fff; }
+    .auth-tab-inactive { background:transparent; color:rgba(255,255,255,0.5); }
+
+    /* ── Input shared ── */
+    .field { width:100%; border-radius:1rem; background:rgba(255,255,255,0.08);
+             border:1px solid rgba(255,255,255,0.12); padding:.75rem 1rem;
+             outline:none; color:#f8fafc; transition:border-color .2s; }
+    .field:focus { border-color:#818cf8; }
+    .field::placeholder { color:rgba(255,255,255,0.3); }
+  </style>
+</head>
+<body class="text-white selection:bg-indigo-400/30 selection:text-white">
+
+<!-- ══════════════════════════════════════════════════════════════
+     AUTH SCREEN  (shown before login)
+══════════════════════════════════════════════════════════════ -->
+<div id="authScreen">
+  <div class="glass-strong rounded-3xl w-full max-w-md p-8 animate-fadeUp">
+
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-500/20 mb-4">
+        <i data-lucide="book-open-check" class="w-8 h-8 text-indigo-300"></i>
+      </div>
+      <h1 class="text-2xl font-bold">IB Program Tracker</h1>
+      <p class="text-slate-300/70 text-sm mt-1">Your personal study dashboard</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex rounded-2xl bg-white/5 p-1 mb-6 gap-1">
+      <button id="tabLogin"  onclick="showTab('login')"
+        class="auth-tab-active flex-1 rounded-xl py-2.5 text-sm font-medium transition">Sign In</button>
+      <button id="tabSignup" onclick="showTab('signup')"
+        class="auth-tab-inactive flex-1 rounded-xl py-2.5 text-sm font-medium transition">Create Account</button>
+    </div>
+
+    <!-- Auth error banner -->
+    <div id="authError" class="hidden mb-4 rounded-2xl border border-rose-300/20 bg-rose-400/10 text-rose-200 text-sm px-4 py-3"></div>
+    <div id="authInfo"  class="hidden mb-4 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-200 text-sm px-4 py-3"></div>
+
+    <!-- LOGIN FORM -->
+    <div id="formLogin">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm text-slate-200/80 mb-2">Email</label>
+          <input id="loginEmail" type="email" placeholder="you@email.com" class="field" />
+        </div>
+        <div>
+          <label class="block text-sm text-slate-200/80 mb-2">Password</label>
+          <input id="loginPassword" type="password" placeholder="••••••••" class="field" />
+        </div>
+        <button onclick="doLogin()"
+          class="w-full rounded-2xl bg-indigo-500 hover:bg-indigo-400 transition py-3 font-semibold mt-2 flex items-center justify-center gap-2">
+          <i data-lucide="log-in" class="w-4 h-4"></i>Sign In
+        </button>
+        <button onclick="doForgotPassword()"
+          class="w-full text-center text-sm text-slate-300/60 hover:text-slate-200 transition mt-1">
+          Forgot password?
+        </button>
+      </div>
+    </div>
+
+    <!-- SIGNUP FORM -->
+    <div id="formSignup" class="hidden">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm text-slate-200/80 mb-2">Email</label>
+          <input id="signupEmail" type="email" placeholder="you@email.com" class="field" />
+        </div>
+        <div>
+          <label class="block text-sm text-slate-200/80 mb-2">Password <span class="text-slate-400/60">(min 6 characters)</span></label>
+          <input id="signupPassword" type="password" placeholder="••••••••" class="field" />
+        </div>
+        <div>
+          <label class="block text-sm text-slate-200/80 mb-2">Confirm Password</label>
+          <input id="signupConfirm" type="password" placeholder="••••••••" class="field" />
+        </div>
+        <button onclick="doSignup()"
+          class="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-400 transition py-3 font-semibold mt-2 flex items-center justify-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4"></i>Create Account
+        </button>
+      </div>
+    </div>
+
+    <p class="text-center text-xs text-slate-400/50 mt-6">
+      Your data is private — only you can access it.
+    </p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     APP SCREEN  (shown after login)
+══════════════════════════════════════════════════════════════ -->
+<div id="appScreen">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
+
+  <!-- ── HEADER ─────────────────────────────────────────────── -->
+  <header class="mb-8">
+    <div class="glass-strong rounded-3xl p-6 md:p-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-sm text-slate-100 mb-4">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          One-file IB dashboard
+        </div>
+        <h1 class="text-3xl md:text-4xl font-bold tracking-tight">IB Program Tracker</h1>
+        <p class="text-slate-200/80 mt-2 text-sm">
+          Signed in as <span id="userEmailDisplay" class="text-indigo-300 font-medium"></span>
+        </p>
+      </div>
+      <div class="grid grid-cols-2 gap-3 min-w-[260px]">
+        <button id="exportBtn" class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition">
+          <div class="flex items-center gap-3">
+            <span class="p-2 rounded-xl bg-emerald-400/20"><i data-lucide="download" class="w-5 h-5 text-emerald-200"></i></span>
+            <div><div class="font-semibold">Export</div><div class="text-xs text-slate-200/70">Save backup JSON</div></div>
+          </div>
+        </button>
+        <label class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition cursor-pointer">
+          <div class="flex items-center gap-3">
+            <span class="p-2 rounded-xl bg-cyan-400/20"><i data-lucide="upload" class="w-5 h-5 text-cyan-200"></i></span>
+            <div><div class="font-semibold">Import</div><div class="text-xs text-slate-200/70">Restore backup</div></div>
+          </div>
+          <input id="importInput" type="file" accept="application/json" class="hidden" />
+        </label>
+        <button id="seedBtn" class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition">
+          <div class="flex items-center gap-3">
+            <span class="p-2 rounded-xl bg-violet-400/20"><i data-lucide="wand-sparkles" class="w-5 h-5 text-violet-200"></i></span>
+            <div><div class="font-semibold">Load Demo</div><div class="text-xs text-slate-200/70">See example entries</div></div>
+          </div>
+        </button>
+        <button id="mySubjectsBtn" class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition">
+          <div class="flex items-center gap-3">
+            <span class="p-2 rounded-xl bg-amber-400/20"><i data-lucide="book-marked" class="w-5 h-5 text-amber-200"></i></span>
+            <div><div class="font-semibold">My Subjects</div><div class="text-xs text-slate-200/70">Add or remove subjects</div></div>
+          </div>
+        </button>
+        <button id="signOutBtn" class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition">
+          <div class="flex items-center gap-3">
+            <span class="p-2 rounded-xl bg-rose-400/20"><i data-lucide="log-out" class="w-5 h-5 text-rose-200"></i></span>
+            <div><div class="font-semibold">Sign Out</div><div class="text-xs text-slate-200/70">Leave this device</div></div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── CLOUD SYNC COLLAPSIBLE PANEL ───────────────────────── -->
+  <section class="mb-8">
+    <div class="glass-strong rounded-3xl overflow-hidden">
+      <button id="syncToggleBtn" type="button"
+        class="w-full flex items-center justify-between gap-4 px-5 md:px-6 py-4 hover:bg-white/5 transition text-left">
+        <div class="flex items-center gap-3">
+          <span class="p-2 rounded-xl bg-emerald-400/15"><i data-lucide="cloud" class="w-5 h-5 text-emerald-300"></i></span>
+          <div>
+            <div class="font-semibold flex items-center gap-2">
+              Cloud Sync
+              <span id="syncHeaderDot" class="sync-dot offline"></span>
+              <span id="syncHeaderLabel" class="text-xs font-normal text-slate-300/70">Not connected</span>
+            </div>
+            <div class="text-xs text-slate-200/60">Sync between phone &amp; laptop — your data stays private to your account</div>
+          </div>
+        </div>
+        <i id="syncChevron" data-lucide="chevron-down" class="w-5 h-5 text-slate-300/60 transition-transform duration-300 shrink-0"></i>
+      </button>
+
+      <div id="syncPanelBody" class="collapsed">
+        <div>
+          <div class="px-5 md:px-6 pb-6 pt-2 border-t border-white/10">
+            <p class="text-sm text-slate-200/70 mb-5 leading-relaxed">
+              Your data is tied to your account — it's private. Click <strong class="text-white/90">Enable Sync</strong> to start syncing across all your devices automatically. The most recent change always wins.
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <button id="enableSyncBtn" type="button"
+                class="rounded-2xl px-5 py-3 bg-emerald-500 hover:bg-emerald-400 transition font-medium inline-flex items-center gap-2 text-sm">
+                <i data-lucide="cloud-upload" class="w-4 h-4"></i>Enable Sync
+              </button>
+              <button id="disableSyncBtn" type="button"
+                class="rounded-2xl px-5 py-3 bg-white/10 hover:bg-white/15 border border-white/10 transition font-medium inline-flex items-center gap-2 text-sm">
+                <i data-lucide="cloud-off" class="w-4 h-4"></i>Use Local Only
+              </button>
+              <button id="forcePushBtn" type="button"
+                class="rounded-2xl px-5 py-3 bg-white/10 hover:bg-white/15 border border-white/10 transition font-medium inline-flex items-center gap-2 text-sm hidden">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i>Force Push
+              </button>
+            </div>
+            <div id="syncStatus"
+              class="mt-4 text-sm rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-200/80 flex items-center gap-2">
+              <span class="sync-dot offline shrink-0"></span>
+              Local mode. Click Enable Sync to sync across devices.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SUMMARY CARDS ──────────────────────────────────────── -->
+  <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+    <div class="glass rounded-3xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-slate-200/80 text-sm">Weekly tasks completed</span>
+        <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-300"></i>
+      </div>
+      <div id="summaryTasksDone" class="text-3xl font-bold">0</div>
+      <div id="summaryTasksTotal" class="text-sm text-slate-300/75 mt-1">of 0 tasks</div>
+    </div>
+    <div class="glass rounded-3xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-slate-200/80 text-sm">Syllabus progress</span>
+        <i data-lucide="book-open-check" class="w-5 h-5 text-cyan-300"></i>
+      </div>
+      <div id="summarySyllabusPercent" class="text-3xl font-bold">0%</div>
+      <div id="summarySyllabusCount" class="text-sm text-slate-300/75 mt-1">0 of 0 items complete</div>
+    </div>
+    <div class="glass rounded-3xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-slate-200/80 text-sm">Past papers done</span>
+        <i data-lucide="files" class="w-5 h-5 text-violet-300"></i>
+      </div>
+      <div id="summaryPapersDone" class="text-3xl font-bold">0</div>
+      <div id="summaryPapersTotal" class="text-sm text-slate-300/75 mt-1">of 0 papers logged</div>
+    </div>
+    <div class="glass rounded-3xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-slate-200/80 text-sm">Average mock score</span>
+        <i data-lucide="bar-chart-3" class="w-5 h-5 text-amber-300"></i>
+      </div>
+      <div id="summaryAverageScore" class="text-3xl font-bold">—</div>
+      <div class="text-sm text-slate-300/75 mt-1">Across scored past papers</div>
+    </div>
+  </section>
+
+  <!-- ── MAIN GRID ──────────────────────────────────────────── -->
+  <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <div class="xl:col-span-2 space-y-6">
+
+      <!-- Quick Add -->
+      <div class="glass-strong rounded-3xl p-5 md:p-6">
+        <div class="mb-5">
+          <h2 class="text-xl font-semibold">Quick Add</h2>
+          <p class="text-sm text-slate-200/70 mt-1">Add study tasks, timed sessions, syllabus items, IA or EE steps, and past paper records.</p>
+        </div>
+        <form id="entryForm" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm text-slate-200/80 mb-2">Type</label>
+            <select id="entryType" class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300">
+              <option value="task">Weekly study task</option>
+              <option value="focus">Timed focus session</option>
+              <option value="syllabus">Syllabus item</option>
+              <option value="paper">Past paper</option>
+              <option value="revision">Revision session</option>
+              <option value="ia">IA progress</option>
+              <option value="ee">EE work</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-200/80 mb-2">Subject</label>
+            <select id="entrySubject" class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300"></select>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-200/80 mb-2">Title</label>
+            <input id="entryTitle" type="text" placeholder="e.g. Calculus limits review"
+              class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300" required />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-200/80 mb-2">Week / Session</label>
+            <input id="entryWeek" type="text" placeholder="e.g. Week 1 or May 2025"
+              class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-200/80 mb-2">Duration</label>
+            <select id="entryDuration" class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300">
+              <option value="">Choose duration</option>
+              <option>15 min</option><option>20 min</option><option>25 min</option>
+              <option>30 min</option><option>45 min</option><option>1 hour</option>
+              <option>1 hour 30 min</option><option>2 hours</option><option>3 hours</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-200/80 mb-2">Score % (optional)</label>
+            <input id="entryScore" type="number" min="0" max="100" placeholder="Only for papers"
+              class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-200/80 mb-2">Status</label>
+            <select id="entryStatus" class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300">
+              <option value="todo">To do</option>
+              <option value="progress">In progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+          <div class="md:col-span-2 xl:col-span-2">
+            <label class="block text-sm text-slate-200/80 mb-2">Notes</label>
+            <textarea id="entryNotes" rows="3" placeholder="Add details, weak points, or next steps"
+              class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300 resize-none"></textarea>
+          </div>
+          <div class="md:col-span-2 xl:col-span-3 flex justify-end">
+            <button type="submit"
+              class="inline-flex items-center gap-2 rounded-2xl bg-indigo-500 hover:bg-indigo-400 transition px-5 py-3 font-medium shadow-lg shadow-indigo-900/30">
+              <i data-lucide="plus" class="w-4 h-4"></i>Add entry
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Recent Entries -->
+      <div class="glass-strong rounded-3xl p-5 md:p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+          <div>
+            <h2 class="text-xl font-semibold">Recent Entries</h2>
+            <p class="text-sm text-slate-200/70 mt-1">Split into in-progress and done.</p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <select id="filterType" class="rounded-2xl bg-white/10 border border-white/10 px-4 py-2.5 outline-none">
+              <option value="all">All types</option>
+              <option value="task">Weekly tasks</option>
+              <option value="focus">Timed focus sessions</option>
+              <option value="revision">Revision sessions</option>
+              <option value="syllabus">Syllabus</option>
+              <option value="paper">Past papers</option>
+              <option value="ia">IA progress</option>
+              <option value="ee">EE work</option>
+            </select>
+            <select id="filterSubject" class="rounded-2xl bg-white/10 border border-white/10 px-4 py-2.5 outline-none"></select>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="glass rounded-3xl p-4">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-lg font-semibold text-amber-200">In Progress</h3>
+                <p class="text-xs text-slate-200/60">To do and in progress items</p>
+              </div>
+              <span id="inProgressCount" class="text-xs px-3 py-1 rounded-full bg-amber-400/15 text-amber-200 border border-amber-300/20">0</span>
+            </div>
+            <div id="entriesInProgress" class="space-y-3 max-h-[560px] overflow-auto pr-1 scrollbar-thin"></div>
+          </div>
+          <div class="glass rounded-3xl p-4">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-lg font-semibold text-emerald-200">Done</h3>
+                <p class="text-xs text-slate-200/60">Completed items and finished papers</p>
+              </div>
+              <span id="doneCount" class="text-xs px-3 py-1 rounded-full bg-emerald-400/15 text-emerald-200 border border-emerald-300/20">0</span>
+            </div>
+            <div id="entriesDone" class="space-y-3 max-h-[560px] overflow-auto pr-1 scrollbar-thin"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+      <div class="glass-strong rounded-3xl p-5 md:p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h2 class="text-xl font-semibold">Subject Snapshot</h2>
+            <p class="text-sm text-slate-200/70 mt-1">Click a subject for detailed insight.</p>
+          </div>
+          <i data-lucide="layout-dashboard" class="w-5 h-5 text-slate-200/80"></i>
+        </div>
+        <div id="subjectStats" class="space-y-3"></div>
+      </div>
+      <div class="glass-strong rounded-3xl p-5 md:p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h2 class="text-xl font-semibold">Study Planner Rubric</h2>
+            <p class="text-sm text-slate-200/70 mt-1">What makes this app a strong 10/10 setup.</p>
+          </div>
+          <i data-lucide="badge-check" class="w-5 h-5 text-emerald-300"></i>
+        </div>
+        <ul class="space-y-3 text-sm text-slate-100/90">
+          <li class="flex gap-3"><i data-lucide="check" class="w-4 h-4 mt-0.5 text-emerald-300 shrink-0"></i><span>Fast, single-file, works offline after first load.</span></li>
+          <li class="flex gap-3"><i data-lucide="check" class="w-4 h-4 mt-0.5 text-emerald-300 shrink-0"></i><span>Private account — only you can see your data.</span></li>
+          <li class="flex gap-3"><i data-lucide="check" class="w-4 h-4 mt-0.5 text-emerald-300 shrink-0"></i><span>Real-time sync across phone &amp; laptop via Firebase.</span></li>
+          <li class="flex gap-3"><i data-lucide="check" class="w-4 h-4 mt-0.5 text-emerald-300 shrink-0"></i><span>Supports tasks, focus sessions, revision, IA/EE, syllabus, and past papers.</span></li>
+          <li class="flex gap-3"><i data-lucide="check" class="w-4 h-4 mt-0.5 text-emerald-300 shrink-0"></i><span>Subject drill-down modal with metrics per subject.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /max-w -->
+</div><!-- /appScreen -->
+
+
+<!-- ── SUBJECT PICKER MODAL ──────────────────────────────────── -->
+<div id="subjectPickerModal" class="fixed inset-0 hidden items-center justify-center z-50 p-4 bg-slate-950/75">
+  <div class="glass-strong rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-fadeUp">
+    <div class="flex items-start justify-between gap-4 p-6 border-b border-white/10">
+      <div>
+        <h2 id="subjectPickerTitle" class="text-2xl font-bold">Choose Your Subjects</h2>
+        <p class="text-sm text-slate-200/70 mt-1">Select every subject you are taking. You can change this anytime.</p>
+      </div>
+      <button id="closeSubjectPickerBtn" class="rounded-2xl p-3 bg-white/10 hover:bg-white/15 transition hidden">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div class="overflow-auto max-h-[calc(90vh-160px)] p-6 space-y-6 scrollbar-thin" id="subjectPickerGroups"></div>
+    <div class="p-6 border-t border-white/10 flex items-center justify-between gap-4">
+      <span id="subjectPickerCount" class="text-sm text-slate-300/70">0 subjects selected</span>
+      <button id="saveSubjectsBtn"
+        class="rounded-2xl px-6 py-3 bg-indigo-500 hover:bg-indigo-400 transition font-semibold inline-flex items-center gap-2">
+        <i data-lucide="check" class="w-4 h-4"></i>Save & Continue
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SUBJECT MODAL ────────────────────────────────────────── -->
+<div id="subjectModal" class="fixed inset-0 hidden items-center justify-center z-50 p-4 bg-slate-950/65">
+  <div class="glass-strong rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-fadeUp">
+    <div class="flex items-start justify-between gap-4 p-6 border-b border-white/10">
+      <div>
+        <h2 id="modalSubjectTitle" class="text-2xl font-bold"></h2>
+        <p class="text-sm text-slate-200/70 mt-1">Subject-level breakdown.</p>
+      </div>
+      <button id="closeModalBtn" class="rounded-2xl p-3 bg-white/10 hover:bg-white/15 transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div class="p-6 overflow-auto max-h-[calc(90vh-96px)] scrollbar-thin">
+      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 mb-6" id="modalSummaryCards"></section>
+      <section class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div class="glass rounded-3xl p-4">
+          <h3 class="text-lg font-semibold text-amber-200 mb-3">In Progress</h3>
+          <div id="modalInProgressList" class="space-y-3"></div>
+        </div>
+        <div class="glass rounded-3xl p-4">
+          <h3 class="text-lg font-semibold text-emerald-200 mb-3">Done</h3>
+          <div id="modalDoneList" class="space-y-3"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════════ -->
+<script>
+// ── Firebase config (hardcoded) ──────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAfmM3EW97sqsj866DUjA_VLCw6eA9mV9M",
+  authDomain:        "ib-program-tracker.firebaseapp.com",
+  projectId:         "ib-program-tracker",
+  storageBucket:     "ib-program-tracker.firebasestorage.app",
+  messagingSenderId: "398602025748",
+  appId:             "1:398602025748:web:3f02ffbb84b75b563ba001",
+  measurementId:     "G-2DT25QNWFH"
+};
+
+// ── Init Firebase ────────────────────────────────────────────
+const fbApp  = firebase.initializeApp(FIREBASE_CONFIG);
+const fbAuth = firebase.auth(fbApp);
+const fbDb   = firebase.firestore(fbApp);
+
+// ── Constants ────────────────────────────────────────────────
+const STORAGE_KEY = 'ib-program-tracker-v2';
+// ── Full IB subject catalogue organised by group ────────────
+const IB_GROUPS = [
+  {
+    group: 'Group 1 — Studies in Language & Literature',
+    subjects: [
+      'English A: Language and Literature',
+      'Spanish A: Lengua y Literatura',
+    ]
+  },
+  {
+    group: 'Group 2 — Language Acquisition',
+    subjects: [
+      'English B',
+      'French AB Initio',
+    ]
+  },
+  {
+    group: 'Group 3 — Individuals & Societies',
+    subjects: [
+      'Business Management',
+      'Economics',
+      'Gestión Empresarial',
+      'Global Politics',
+      'Philosophy',
+      'Psychology',
+      'Environmental Systems and Societies (ESS)',
+      'Sistemas Ambientales y Sociedades',
+    ]
+  },
+  {
+    group: 'Group 4 — Sciences',
+    subjects: [
+      'Biology',
+      'Chemistry',
+      'Physics',
+      'Computer Science (Informática)',
+      'Environmental Systems and Societies (ESS)',
+    ]
+  },
+  {
+    group: 'Group 5 — Mathematics',
+    subjects: [
+      'Mathematics: Analysis & Approaches (AA)',
+      'Mathematics: Applications & Interpretation (AI)',
+    ]
+  },
+  {
+    group: 'Group 6 — The Arts',
+    subjects: [
+      'Visual Arts',
+    ]
+  },
+  {
+    group: 'Core',
+    subjects: [
+      'Theory of Knowledge (TOK)',
+      'Extended Essay (EE)',
+      'CAS',
+    ]
+  },
+];
+
+// All subjects flattened (used as fallback if user has no subjects set yet)
+const ALL_SUBJECTS = IB_GROUPS.flatMap(g => g.subjects);
+
+// Active subjects for THIS user — loaded from their profile in Firestore.
+// Starts empty; populated after login.
+let SUBJECTS = [];
+const TYPE_LABELS = { task:'Weekly Task', focus:'Focus Session', syllabus:'Syllabus', paper:'Past Paper', revision:'Revision', ia:'IA Progress', ee:'EE Work' };
+
+const demoEntries = [
+  { id:crypto.randomUUID(), type:'task',     subject:'Math AA HL',            title:'Review integration techniques',      week:'Week 1',    duration:'1 hour',  score:'',  status:'progress', notes:'Focus on substitution and area problems.', createdAt:Date.now()-500000, updatedAt:Date.now()-500000 },
+  { id:crypto.randomUUID(), type:'paper',    subject:'Chemistry SL',           title:'Mock Paper 1',                       week:'March',     duration:'',        score:78,  status:'done',     notes:'Need stronger bonding explanations.',      createdAt:Date.now()-400000, updatedAt:Date.now()-400000 },
+  { id:crypto.randomUUID(), type:'syllabus', subject:'English B SL',           title:'Sharing the planet vocabulary set',  week:'Week 2',    duration:'30 min',  score:'',  status:'done',     notes:'Prepare speaking examples too.',           createdAt:Date.now()-300000, updatedAt:Date.now()-300000 },
+  { id:crypto.randomUUID(), type:'task',     subject:'Business Management HL', title:'Case study notes: marketing mix',    week:'Week 2',    duration:'45 min',  score:'',  status:'todo',     notes:'Add real-world example.',                  createdAt:Date.now()-200000, updatedAt:Date.now()-200000 },
+  { id:crypto.randomUUID(), type:'ia',       subject:'Biology SL',             title:'Draft research question options',    week:'Week 3',    duration:'25 min',  score:'',  status:'progress', notes:'Compare enzyme variables.',                createdAt:Date.now()-150000, updatedAt:Date.now()-150000 },
+  { id:crypto.randomUUID(), type:'focus',    subject:'Spanish A',              title:'Commentary reading sprint',          week:'Session 1', duration:'25 min',  score:'',  status:'todo',     notes:'Focus on rhetorical devices.',             createdAt:Date.now()-100000, updatedAt:Date.now()-100000 },
+];
+
+// ── Element refs ─────────────────────────────────────────────
+const els = {
+  authScreen:             document.getElementById('authScreen'),
+  appScreen:              document.getElementById('appScreen'),
+  userEmailDisplay:       document.getElementById('userEmailDisplay'),
+  authError:              document.getElementById('authError'),
+  authInfo:               document.getElementById('authInfo'),
+  tabLogin:               document.getElementById('tabLogin'),
+  tabSignup:              document.getElementById('tabSignup'),
+  formLogin:              document.getElementById('formLogin'),
+  formSignup:             document.getElementById('formSignup'),
+  loginEmail:             document.getElementById('loginEmail'),
+  loginPassword:          document.getElementById('loginPassword'),
+  signupEmail:            document.getElementById('signupEmail'),
+  signupPassword:         document.getElementById('signupPassword'),
+  signupConfirm:          document.getElementById('signupConfirm'),
+  signOutBtn:             document.getElementById('signOutBtn'),
+  form:                   document.getElementById('entryForm'),
+  type:                   document.getElementById('entryType'),
+  subject:                document.getElementById('entrySubject'),
+  title:                  document.getElementById('entryTitle'),
+  week:                   document.getElementById('entryWeek'),
+  duration:               document.getElementById('entryDuration'),
+  score:                  document.getElementById('entryScore'),
+  status:                 document.getElementById('entryStatus'),
+  notes:                  document.getElementById('entryNotes'),
+  filterType:             document.getElementById('filterType'),
+  filterSubject:          document.getElementById('filterSubject'),
+  entriesInProgress:      document.getElementById('entriesInProgress'),
+  entriesDone:            document.getElementById('entriesDone'),
+  inProgressCount:        document.getElementById('inProgressCount'),
+  doneCount:              document.getElementById('doneCount'),
+  subjectStats:           document.getElementById('subjectStats'),
+  summaryTasksDone:       document.getElementById('summaryTasksDone'),
+  summaryTasksTotal:      document.getElementById('summaryTasksTotal'),
+  summarySyllabusPercent: document.getElementById('summarySyllabusPercent'),
+  summarySyllabusCount:   document.getElementById('summarySyllabusCount'),
+  summaryPapersDone:      document.getElementById('summaryPapersDone'),
+  summaryPapersTotal:     document.getElementById('summaryPapersTotal'),
+  summaryAverageScore:    document.getElementById('summaryAverageScore'),
+  exportBtn:              document.getElementById('exportBtn'),
+  importInput:            document.getElementById('importInput'),
+  seedBtn:                document.getElementById('seedBtn'),
+  subjectModal:           document.getElementById('subjectModal'),
+  closeModalBtn:          document.getElementById('closeModalBtn'),
+  modalSubjectTitle:      document.getElementById('modalSubjectTitle'),
+  modalSummaryCards:      document.getElementById('modalSummaryCards'),
+  modalInProgressList:    document.getElementById('modalInProgressList'),
+  modalDoneList:          document.getElementById('modalDoneList'),
+  syncToggleBtn:          document.getElementById('syncToggleBtn'),
+  syncPanelBody:          document.getElementById('syncPanelBody'),
+  syncChevron:            document.getElementById('syncChevron'),
+  syncStatus:             document.getElementById('syncStatus'),
+  mySubjectsBtn:          document.getElementById('mySubjectsBtn'),
+  subjectPickerModal:     document.getElementById('subjectPickerModal'),
+  subjectPickerTitle:     document.getElementById('subjectPickerTitle'),
+  subjectPickerGroups:    document.getElementById('subjectPickerGroups'),
+  subjectPickerCount:     document.getElementById('subjectPickerCount'),
+  saveSubjectsBtn:        document.getElementById('saveSubjectsBtn'),
+  closeSubjectPickerBtn:  document.getElementById('closeSubjectPickerBtn'),
+  syncHeaderDot:          document.getElementById('syncHeaderDot'),
+  syncHeaderLabel:        document.getElementById('syncHeaderLabel'),
+  enableSyncBtn:          document.getElementById('enableSyncBtn'),
+  disableSyncBtn:         document.getElementById('disableSyncBtn'),
+  forcePushBtn:           document.getElementById('forcePushBtn'),
+};
+
+// ── App state ────────────────────────────────────────────────
+let state        = { entries: [] };
+let currentUser  = null;
+
+const sync = {
+  unsub:   null,
+  enabled: false,
+  // No lastPushAt needed — we use snapshot.metadata.hasPendingWrites
+  // to detect our own writes instead of an unreliable time window.
+};
+
+// ══════════════════════════════════════════════════
+// AUTH SCREEN LOGIC
+// ══════════════════════════════════════════════════
+
+function showTab(tab) {
+  const isLogin = tab === 'login';
+  els.tabLogin.className  = `flex-1 rounded-xl py-2.5 text-sm font-medium transition ${isLogin  ? 'auth-tab-active' : 'auth-tab-inactive'}`;
+  els.tabSignup.className = `flex-1 rounded-xl py-2.5 text-sm font-medium transition ${!isLogin ? 'auth-tab-active' : 'auth-tab-inactive'}`;
+  els.formLogin.classList.toggle('hidden', !isLogin);
+  els.formSignup.classList.toggle('hidden', isLogin);
+  clearAuthMessages();
+}
+
+function showAuthError(msg) {
+  els.authError.textContent = msg;
+  els.authError.classList.remove('hidden');
+  els.authInfo.classList.add('hidden');
+}
+
+function showAuthInfo(msg) {
+  els.authInfo.textContent = msg;
+  els.authInfo.classList.remove('hidden');
+  els.authError.classList.add('hidden');
+}
+
+function clearAuthMessages() {
+  els.authError.classList.add('hidden');
+  els.authInfo.classList.add('hidden');
+}
+
+// Friendly Firebase error messages
+function friendlyAuthError(code) {
+  const map = {
+    'auth/user-not-found':      'No account found with that email.',
+    'auth/wrong-password':      'Incorrect password. Please try again.',
+    'auth/invalid-email':       'Please enter a valid email address.',
+    'auth/email-already-in-use':'An account with this email already exists.',
+    'auth/weak-password':       'Password must be at least 6 characters.',
+    'auth/too-many-requests':   'Too many attempts. Please wait a moment.',
+    'auth/invalid-credential':  'Incorrect email or password.',
+  };
+  return map[code] || 'Something went wrong. Please try again.';
+}
+
+async function doLogin() {
+  clearAuthMessages();
+  const email    = els.loginEmail.value.trim();
+  const password = els.loginPassword.value;
+  if (!email || !password) { showAuthError('Please fill in both fields.'); return; }
+  try {
+    await fbAuth.signInWithEmailAndPassword(email, password);
+    // onAuthStateChanged will handle the transition
+  } catch (err) {
+    showAuthError(friendlyAuthError(err.code));
+  }
+}
+
+async function doSignup() {
+  clearAuthMessages();
+  const email    = els.signupEmail.value.trim();
+  const password = els.signupPassword.value;
+  const confirm  = els.signupConfirm.value;
+  if (!email || !password || !confirm) { showAuthError('Please fill in all fields.'); return; }
+  if (password !== confirm)            { showAuthError('Passwords do not match.'); return; }
+  if (password.length < 6)            { showAuthError('Password must be at least 6 characters.'); return; }
+  try {
+    await fbAuth.createUserWithEmailAndPassword(email, password);
+    // onAuthStateChanged will handle the transition
+  } catch (err) {
+    showAuthError(friendlyAuthError(err.code));
+  }
+}
+
+async function doForgotPassword() {
+  clearAuthMessages();
+  const email = els.loginEmail.value.trim();
+  if (!email) { showAuthError('Enter your email above first.'); return; }
+  try {
+    await fbAuth.sendPasswordResetEmail(email);
+    showAuthInfo(`Reset email sent to ${email}. Check your inbox.`);
+  } catch (err) {
+    showAuthError(friendlyAuthError(err.code));
+  }
+}
+
+// Enter key support on auth forms
+document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('signupConfirm').addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
+
+// ══════════════════════════════════════════════════
+// AUTH STATE LISTENER  — the heart of the whole flow
+// ══════════════════════════════════════════════════
+
+fbAuth.onAuthStateChanged(async (user) => {
+  if (user) {
+    // ── Logged IN ──
+    currentUser = user;
+    els.authScreen.style.display = 'none';
+    els.appScreen.style.display  = 'block';
+    els.userEmailDisplay.textContent = user.email;
+
+    // Load their localStorage data first for instant render
+    state = loadLocalState();
+
+    // Load user's chosen subjects from Firestore profile
+    await loadUserSubjects();
+
+    resetFormDefaults();
+    renderAll();
+
+    // Auto-enable cloud sync since they're logged in
+    enableCloudSync();
+
+  } else {
+    // ── Logged OUT ──
+    currentUser = null;
+    SUBJECTS = [];
+    disableCloudSync();
+    els.appScreen.style.display  = 'none';
+    els.authScreen.style.display = 'flex';
+    lucide.createIcons();
+  }
+});
+
+
+// ══════════════════════════════════════════════════
+// SUBJECT PICKER — per-user subject management
+// ══════════════════════════════════════════════════
+
+// Firestore path for user profile (subjects live here)
+function userProfileRef() {
+  return fbDb.collection('users').doc(currentUser.uid).collection('profile').doc('settings');
+}
+
+// Load subjects from Firestore. If none saved yet → first-time user → show picker.
+async function loadUserSubjects() {
+  try {
+    const doc = await userProfileRef().get();
+    if (doc.exists && Array.isArray(doc.data().subjects) && doc.data().subjects.length > 0) {
+      SUBJECTS = doc.data().subjects;
+      populateSubjectSelects();
+    } else {
+      // First time — show the subject picker (no close button)
+      openSubjectPicker(true);
+    }
+  } catch (err) {
+    // Offline or error — fall back to any locally cached subjects
+    const cached = localStorage.getItem(localStorageKey() + '-subjects');
+    SUBJECTS = cached ? JSON.parse(cached) : [];
+    if (SUBJECTS.length === 0) openSubjectPicker(true);
+    else populateSubjectSelects();
+  }
+}
+
+// Save chosen subjects to Firestore + local cache
+async function saveUserSubjects(chosen) {
+  SUBJECTS = chosen;
+  // Cache locally for offline fallback
+  localStorage.setItem(localStorageKey() + '-subjects', JSON.stringify(chosen));
+  try {
+    await userProfileRef().set({ subjects: chosen }, { merge: true });
+  } catch (err) {
+    console.warn('Could not save subjects to cloud:', err.message);
+  }
+  populateSubjectSelects();
+  renderAll();
+}
+
+// Temp selection state while the picker is open
+let pickerSelected = new Set();
+
+function openSubjectPicker(isFirstTime = false) {
+  pickerSelected = new Set(SUBJECTS); // pre-select current subjects
+
+  // Show or hide the close button depending on whether it's first-time
+  els.closeSubjectPickerBtn.classList.toggle('hidden', isFirstTime);
+  els.subjectPickerTitle.textContent = isFirstTime
+    ? '👋 Welcome! Choose Your Subjects'
+    : 'Edit My Subjects';
+
+  // Render group sections with chips
+  els.subjectPickerGroups.innerHTML = IB_GROUPS.map(group => `
+    <div>
+      <h3 class="text-xs font-semibold text-slate-300/60 uppercase tracking-wider mb-3">${escapeHtml(group.group)}</h3>
+      <div class="flex flex-wrap gap-2">
+        ${group.subjects.map(subject => `
+          <button type="button"
+            class="subject-chip ${pickerSelected.has(subject) ? 'selected' : ''}"
+            data-subject="${escapeHtml(subject)}">
+            ${escapeHtml(subject)}
+          </button>`).join('')}
+      </div>
+    </div>`).join('');
+
+  updatePickerCount();
+
+  // Wire chip click events
+  els.subjectPickerGroups.querySelectorAll('.subject-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const s = chip.dataset.subject;
+      if (pickerSelected.has(s)) {
+        pickerSelected.delete(s);
+        chip.classList.remove('selected');
+      } else {
+        pickerSelected.add(s);
+        chip.classList.add('selected');
+      }
+      updatePickerCount();
+    });
+  });
+
+  els.subjectPickerModal.classList.remove('hidden');
+  els.subjectPickerModal.classList.add('flex');
+  document.body.classList.add('modal-open');
+  lucide.createIcons();
+}
+
+function updatePickerCount() {
+  const n = pickerSelected.size;
+  els.subjectPickerCount.textContent = `${n} subject${n !== 1 ? 's' : ''} selected`;
+  els.saveSubjectsBtn.disabled = n === 0;
+  els.saveSubjectsBtn.classList.toggle('opacity-50', n === 0);
+}
+
+function closeSubjectPicker() {
+  els.subjectPickerModal.classList.add('hidden');
+  els.subjectPickerModal.classList.remove('flex');
+  document.body.classList.remove('modal-open');
+}
+
+// Save button
+els.saveSubjectsBtn.addEventListener('click', async () => {
+  if (pickerSelected.size === 0) return;
+  // Keep original IB_GROUPS order when saving
+  const ordered = ALL_SUBJECTS.filter(s => pickerSelected.has(s));
+  await saveUserSubjects(ordered);
+  closeSubjectPicker();
+});
+
+// Close button (only visible when not first-time)
+els.closeSubjectPickerBtn.addEventListener('click', closeSubjectPicker);
+
+// My Subjects button in header
+els.mySubjectsBtn.addEventListener('click', () => openSubjectPicker(false));
+
+// ══════════════════════════════════════════════════
+// UNDO HISTORY  — in-memory only, cleared on tab close
+// ══════════════════════════════════════════════════
+
+const undoStack = [];   // array of deep-cloned entry snapshots
+const MAX_UNDO  = 50;   // cap so memory never grows unbounded
+
+// Call this BEFORE every destructive action to save a snapshot
+function saveHistory() {
+  undoStack.push(JSON.parse(JSON.stringify(state.entries)));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  state.entries = undoStack.pop();  // restore previous snapshot
+  saveState();                      // persist locally + push to cloud
+  renderAll();
+  // Flash the sync bar briefly so the user knows it worked
+  const prevHTML  = els.syncStatus.innerHTML;
+  const prevClass = els.syncStatus.className;
+  setSyncStatus('↩ Undo successful — last action reversed.', 'warning');
+  setTimeout(() => {
+    els.syncStatus.className = prevClass;
+    els.syncStatus.innerHTML = prevHTML;
+  }, 2000);
+}
+
+// ══════════════════════════════════════════════════
+// CLOUD SYNC  — Cloud is the single source of truth
+// Strategy: write → cloud first, then cache locally.
+//           read  → always from cloud (via onSnapshot).
+//           NO merging. Whatever is in cloud wins.
+//           Offline: save locally, push when back online.
+// ══════════════════════════════════════════════════
+
+// Each user's data lives at: users/{uid}/trackers/main
+function trackerDocRef() {
+  return fbDb.collection('users').doc(currentUser.uid).collection('trackers').doc('main');
+}
+
+// ── Write: push full state to cloud, then cache locally ──────
+// This is the ONLY place we write. Both local and cloud stay
+// identical after every save. No merging needed anywhere.
+async function pushStateToCloud() {
+  if (!currentUser) return;
+  // Always try cloud first
+  await trackerDocRef().set({
+    entries:   state.entries,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  });
+  // Then update local cache to match exactly
+  localStorage.setItem(localStorageKey(), JSON.stringify(state));
+}
+
+// ── Called after every user action (add, delete, markDone…) ──
+// If online: pushes to cloud immediately (onSnapshot will update
+// the other device automatically).
+// If offline: Firebase SDK queues the write and sends it
+// automatically when connection is restored.
+function saveState() {
+  // Optimistically update local cache first for instant UI
+  localStorage.setItem(localStorageKey(), JSON.stringify(state));
+  // Then push to cloud (Firebase handles offline queuing)
+  if (sync.enabled && currentUser) {
+    pushStateToCloud().catch(err => {
+      // Cloud push failed — local cache already saved above,
+      // Firebase will retry automatically when back online
+      setSyncStatus(`Offline — changes saved locally, will sync when reconnected.`, 'warning');
+    });
+  }
+}
+
+// ── Start listening to cloud — this is what makes real-time ──
+// work on the OTHER device. When device A pushes a change,
+// Firestore notifies all listeners. Device B's onSnapshot fires,
+// reads the new cloud state, and updates its UI instantly.
+async function enableCloudSync() {
+  if (!currentUser) return;
+  // Tear down any existing listener first
+  if (sync.unsub) { sync.unsub(); sync.unsub = null; }
+  sync.enabled = true;
+  els.forcePushBtn.classList.remove('hidden');
+  setSyncStatus('Connecting to your cloud data…', 'connecting');
+  setHeaderSync('connecting', 'Connecting…');
+
+  sync.unsub = trackerDocRef().onSnapshot((snapshot) => {
+    // ── snapshot.exists = false: first time this user ever syncs ──
+    if (!snapshot.exists) {
+      // No cloud data yet. Push whatever is local up to cloud
+      // so this device's data is not lost.
+      pushStateToCloud()
+        .then(() => {
+          setSyncStatus('Sync live. Changes on any device appear here instantly.', 'success');
+          setHeaderSync('live', 'Live');
+        })
+        .catch(err => {
+          setSyncStatus(`Could not save to cloud: ${err.message}`, 'error');
+          setHeaderSync('error', 'Error');
+        });
+      return;
+    }
+
+    // ── snapshot.metadata.hasPendingWrites = true ──────────────
+    // This snapshot was triggered by THIS device's own write
+    // (Firebase fires onSnapshot for your own writes too).
+    // We skip re-rendering to avoid a flicker — the UI is already
+    // up to date because saveState() updated it optimistically.
+    if (snapshot.metadata.hasPendingWrites) {
+      setSyncStatus('Sync live. Changes on any device appear here instantly.', 'success');
+      setHeaderSync('live', 'Live');
+      return;
+    }
+
+    // ── This snapshot came from ANOTHER device ─────────────────
+    // Cloud is the truth. Replace local state entirely.
+    // This is what makes deletions, additions, edits from your
+    // phone appear on the laptop (and vice versa) in real time.
+    const cloudEntries = Array.isArray(snapshot.data()?.entries)
+      ? snapshot.data().entries
+      : [];
+
+    state = { entries: cloudEntries };
+    // Update local cache to match cloud exactly
+    localStorage.setItem(localStorageKey(), JSON.stringify(state));
+    renderAll();
+
+    setSyncStatus('Sync live. Changes on any device appear here instantly.', 'success');
+    setHeaderSync('live', 'Live');
+
+  }, (err) => {
+    setSyncStatus(`Sync error: ${err.message}`, 'error');
+    setHeaderSync('error', 'Error');
+  });
+}
+
+function disableCloudSync() {
+  if (sync.unsub) { sync.unsub(); sync.unsub = null; }
+  sync.enabled = false;
+  els.forcePushBtn.classList.add('hidden');
+  setSyncStatus('Local mode. Click Enable Sync to connect.', 'neutral');
+  setHeaderSync('offline', 'Not connected');
+}
+
+// ── Sync status UI ───────────────────────────────────────────
+function setSyncStatus(message, tone = 'neutral') {
+  const tones = {
+    neutral:    'border-white/10 bg-white/5 text-slate-200/80',
+    success:    'border-emerald-300/20 bg-emerald-400/10 text-emerald-100',
+    warning:    'border-amber-300/20 bg-amber-400/10 text-amber-100',
+    error:      'border-rose-300/20 bg-rose-400/10 text-rose-100',
+    connecting: 'border-amber-300/20 bg-amber-400/10 text-amber-100',
+  };
+  const dots = { neutral:'offline', success:'live', warning:'connecting', error:'error', connecting:'connecting' };
+  els.syncStatus.className = `mt-4 text-sm rounded-2xl border px-4 py-3 flex items-center gap-2 ${tones[tone] || tones.neutral}`;
+  els.syncStatus.innerHTML = `<span class="sync-dot ${dots[tone] || 'offline'} shrink-0"></span>${escapeHtml(message)}`;
+}
+
+function setHeaderSync(dotState, label) {
+  const map = { live:'live', connecting:'connecting', offline:'offline', error:'error' };
+  els.syncHeaderDot.className   = `sync-dot ${map[dotState] || 'offline'}`;
+  els.syncHeaderLabel.textContent = label;
+}
+
+// ── Sync panel toggle ────────────────────────────────────────
+let syncPanelOpen = false;
+els.syncToggleBtn.addEventListener('click', () => {
+  syncPanelOpen = !syncPanelOpen;
+  els.syncPanelBody.classList.toggle('collapsed', !syncPanelOpen);
+  els.syncChevron.style.transform = syncPanelOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+  lucide.createIcons();
+});
+
+els.enableSyncBtn.addEventListener('click',  enableCloudSync);
+els.disableSyncBtn.addEventListener('click', disableCloudSync);
+els.forcePushBtn.addEventListener('click', () => {
+  if (!sync.enabled) return;
+  pushStateToCloud()
+    .then(() => setSyncStatus('All local data pushed to cloud.', 'success'))
+    .catch(err => setSyncStatus(`Force push failed: ${err.message}`, 'error'));
+});
+
+// ── Sign out ─────────────────────────────────────────────────
+els.signOutBtn.addEventListener('click', async () => {
+  if (!confirm('Sign out of this device?')) return;
+  disableCloudSync();
+  await fbAuth.signOut();
+});
+
+// ══════════════════════════════════════════════════
+// LOCAL STORAGE
+// ══════════════════════════════════════════════════
+
+function localStorageKey() {
+  // Each user gets their own localStorage key
+  return currentUser ? `${STORAGE_KEY}-${currentUser.uid}` : STORAGE_KEY;
+}
+
+function loadLocalState() {
+  try {
+    const raw = localStorage.getItem(localStorageKey());
+    if (!raw) return { entries: [] };
+    const p   = JSON.parse(raw);
+    return { entries: Array.isArray(p.entries) ? p.entries : [] };
+  } catch { return { entries: [] }; }
+}
+
+// saveState is defined above in the CLOUD SYNC section.
+
+// ══════════════════════════════════════════════════
+// RENDER HELPERS
+// ══════════════════════════════════════════════════
+
+function statusBadge(s) {
+  if (s === 'done')     return 'bg-emerald-400/20 text-emerald-200 border border-emerald-300/20';
+  if (s === 'progress') return 'bg-amber-400/20 text-amber-200 border border-amber-300/20';
+  return 'bg-slate-400/20 text-slate-200 border border-white/10';
+}
+function typeBadge(t) {
+  if (t==='task')     return 'bg-cyan-400/20 text-cyan-200';
+  if (t==='paper')    return 'bg-violet-400/20 text-violet-200';
+  if (t==='syllabus') return 'bg-indigo-400/20 text-indigo-200';
+  if (t==='focus')    return 'bg-fuchsia-400/20 text-fuchsia-200';
+  if (t==='revision') return 'bg-sky-400/20 text-sky-200';
+  if (t==='ia')       return 'bg-orange-400/20 text-orange-200';
+  return 'bg-rose-400/20 text-rose-200';
+}
+function prettyType(t) { return TYPE_LABELS[t] || t; }
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function populateSubjectSelects() {
+  const list = SUBJECTS.length > 0 ? SUBJECTS : ALL_SUBJECTS;
+  const opts = list.map(s => `<option>${s}</option>`).join('');
+  els.subject.innerHTML       = opts;
+  els.filterSubject.innerHTML = `<option value="all">All subjects</option>${opts}`;
+}
+
+function resetFormDefaults() {
+  els.type.value     = 'task';
+  els.subject.value  = SUBJECTS[0];
+  els.duration.value = '';
+  els.status.value   = 'todo';
+  els.filterSubject.value = 'all';
+}
+
+function filteredEntries() {
+  return [...state.entries]
+    // Only show entries whose subject is in the user's active subject list
+    .filter(e => SUBJECTS.length === 0 || SUBJECTS.includes(e.subject))
+    .filter(e => els.filterType.value    === 'all' || e.type    === els.filterType.value)
+    .filter(e => els.filterSubject.value === 'all' || e.subject === els.filterSubject.value)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function renderEmptyState(msg) {
+  return `<div class="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-center text-slate-200/75">
+    <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 mb-3">
+      <i data-lucide="inbox" class="w-5 h-5"></i></div>
+    <p class="font-medium">${msg}</p></div>`;
+}
+
+function renderEntryCard(entry, showDone = false) {
+  const doneBtn = showDone
+    ? `<button data-done-id="${entry.id}" class="shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-emerald-400/15 hover:bg-emerald-400/25 transition border border-emerald-300/20 text-emerald-100 text-sm font-medium"><i data-lucide="check" class="w-4 h-4"></i>DONE</button>`
+    : '';
+  return `
+    <div class="glass rounded-3xl p-4 animate-fadeUp">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <span class="text-xs px-2.5 py-1 rounded-full ${typeBadge(entry.type)}">${prettyType(entry.type)}</span>
+            <span class="text-xs px-2.5 py-1 rounded-full ${statusBadge(entry.status)}">${entry.status}</span>
+            <span class="text-xs px-2.5 py-1 rounded-full bg-white/10 text-slate-100 border border-white/10">${escapeHtml(entry.subject)}</span>
+          </div>
+          <h3 class="font-semibold text-lg leading-snug break-words">${escapeHtml(entry.title)}</h3>
+          <div class="mt-2 text-sm text-slate-200/75 flex flex-wrap gap-4">
+            ${entry.week     ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="calendar-range" class="w-4 h-4"></i>${escapeHtml(entry.week)}</span>` : ''}
+            ${entry.duration ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="timer" class="w-4 h-4"></i>${escapeHtml(entry.duration)}</span>` : ''}
+            ${entry.score !== '' && entry.score !== null ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="percent" class="w-4 h-4"></i>${entry.score}%</span>` : ''}
+            <span class="inline-flex items-center gap-1.5"><i data-lucide="clock-3" class="w-4 h-4"></i>${new Date(entry.createdAt).toLocaleString()}</span>
+          </div>
+          ${entry.notes ? `<p class="mt-3 text-sm text-slate-100/90 leading-relaxed whitespace-pre-wrap">${escapeHtml(entry.notes)}</p>` : ''}
+        </div>
+        <div class="flex flex-col gap-2 items-end shrink-0">
+          ${doneBtn}
+          <button data-delete-id="${entry.id}" class="rounded-2xl p-3 bg-rose-400/15 hover:bg-rose-400/25 transition" title="Delete">
+            <i data-lucide="trash" class="w-4 h-4 text-rose-200"></i>
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderEntries() {
+  const entries = filteredEntries();
+  const inProg  = entries.filter(e => e.status !== 'done');
+  const done    = entries.filter(e => e.status === 'done');
+  els.inProgressCount.textContent = inProg.length;
+  els.doneCount.textContent       = done.length;
+  els.entriesInProgress.innerHTML = inProg.length ? inProg.map(e => renderEntryCard(e, true)).join('') : renderEmptyState('No in-progress entries');
+  els.entriesDone.innerHTML       = done.length   ? done.map(e  => renderEntryCard(e, false)).join('') : renderEmptyState('No done entries');
+  document.querySelectorAll('[data-delete-id]').forEach(b => b.addEventListener('click', () => deleteEntry(b.dataset.deleteId)));
+  document.querySelectorAll('[data-done-id]').forEach(b   => b.addEventListener('click', () => markDone(b.dataset.doneId)));
+  lucide.createIcons();
+}
+
+function renderSummary() {
+  const activeEntries = SUBJECTS.length > 0
+    ? state.entries.filter(e => SUBJECTS.includes(e.subject))
+    : state.entries;
+  const tasks    = activeEntries.filter(e => e.type==='task');
+  const syllabus = activeEntries.filter(e => e.type==='syllabus');
+  const papers   = activeEntries.filter(e => e.type==='paper');
+  const scores   = papers.map(e => Number(e.score)).filter(v => !isNaN(v) && v >= 0);
+  const avg      = scores.length ? Math.round(scores.reduce((a,b) => a+b, 0)/scores.length) : null;
+  const sylDone  = syllabus.filter(e => e.status==='done').length;
+  const sylPct   = syllabus.length ? Math.round((sylDone/syllabus.length)*100) : 0;
+  els.summaryTasksDone.textContent       = tasks.filter(e=>e.status==='done').length;
+  els.summaryTasksTotal.textContent      = `of ${tasks.length} tasks`;
+  els.summarySyllabusPercent.textContent = `${sylPct}%`;
+  els.summarySyllabusCount.textContent   = `${sylDone} of ${syllabus.length} items complete`;
+  els.summaryPapersDone.textContent      = papers.filter(e=>e.status==='done').length;
+  els.summaryPapersTotal.textContent     = `of ${papers.length} papers logged`;
+  els.summaryAverageScore.textContent    = avg === null ? '—' : `${avg}%`;
+}
+
+function getSubjectMetrics(subject) {
+  const se = state.entries.filter(e => e.subject === subject);
+  const completed = se.filter(e=>e.status==='done').length;
+  const total     = se.length;
+  const sylE = se.filter(e=>e.type==='syllabus');
+  const papE = se.filter(e=>e.type==='paper');
+  const scores = papE.map(e=>Number(e.score)).filter(v=>!isNaN(v)&&v>=0);
+  return {
+    completed, total,
+    percent:       total ? Math.round((completed/total)*100) : 0,
+    taskDone:      se.filter(e=>e.type==='task'&&e.status==='done').length,
+    taskInProgress:se.filter(e=>e.type==='task'&&e.status!=='done').length,
+    syllabusPercent: sylE.length ? Math.round((sylE.filter(e=>e.status==='done').length/sylE.length)*100) : 0,
+    papersDone:    papE.filter(e=>e.status==='done').length,
+    averageScore:  scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null,
+    inProgress:    se.filter(e=>e.status!=='done').length,
+    done:          se.filter(e=>e.status==='done').length,
+  };
+}
+
+function renderSubjectStats() {
+  // Only show snapshot cards for subjects the user has selected
+  els.subjectStats.innerHTML = SUBJECTS.map(subject => {
+    const m = getSubjectMetrics(subject);
+    return `<button data-open-subject="${escapeHtml(subject)}" class="glass rounded-2xl p-4 text-left w-full hover:bg-white/12 transition">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div><h3 class="font-medium leading-snug">${subject}</h3>
+          <p class="text-xs text-slate-200/65 mt-1">${m.completed}/${m.total} items complete</p></div>
+        <span class="text-sm font-semibold text-slate-100">${m.percent}%</span>
+      </div>
+      <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden mb-3">
+        <div class="h-full rounded-full bg-gradient-to-r from-cyan-300 via-indigo-300 to-violet-300" style="width:${m.percent}%"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs text-slate-200/75">
+        <span>In progress: ${m.inProgress}</span><span>Done: ${m.done}</span>
+        <span>Tasks done: ${m.taskDone}</span><span>Papers done: ${m.papersDone}</span>
+      </div></button>`;
+  }).join('');
+  document.querySelectorAll('[data-open-subject]').forEach(b =>
+    b.addEventListener('click', () => openSubjectModal(b.dataset.openSubject))
+  );
+}
+
+function renderModalList(entries, emptyText) {
+  if (!entries.length) return `<div class="rounded-2xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-300">${emptyText}</div>`;
+  return entries.map(e => `
+    <div class="rounded-2xl bg-white/5 border border-white/10 p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <span class="text-xs px-2.5 py-1 rounded-full ${typeBadge(e.type)}">${prettyType(e.type)}</span>
+            <span class="text-xs px-2.5 py-1 rounded-full ${statusBadge(e.status)}">${e.status}</span>
+          </div>
+          <h4 class="font-medium break-words">${escapeHtml(e.title)}</h4>
+          <div class="mt-2 text-xs text-slate-300 flex flex-wrap gap-3">
+            ${e.week?`<span>${escapeHtml(e.week)}</span>`:''}
+            ${e.duration?`<span>${escapeHtml(e.duration)}</span>`:''}
+            ${e.score!==''&&e.score!==null?`<span>${e.score}%</span>`:''}
+          </div>
+          ${e.notes?`<p class="mt-2 text-sm text-slate-200/80 whitespace-pre-wrap">${escapeHtml(e.notes)}</p>`:''}
+        </div>
+        <div class="shrink-0 flex flex-col gap-2">
+          ${e.status!=='done'
+            ? `<button data-done-id="${e.id}" class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-emerald-400/15 hover:bg-emerald-400/25 border border-emerald-300/20 text-emerald-100 text-xs font-semibold transition"><i data-lucide="check" class="w-4 h-4"></i>Done</button>`
+            : `<button data-reopen-id="${e.id}" class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-300/20 text-amber-100 text-xs font-semibold transition"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>Reopen</button>`}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openSubjectModal(subject) {
+  const entries = state.entries.filter(e=>e.subject===subject).sort((a,b)=>b.createdAt-a.createdAt);
+  const m = getSubjectMetrics(subject);
+  els.modalSubjectTitle.textContent = subject;
+  els.modalSummaryCards.innerHTML = [
+    {label:'Average mock score',       value: m.averageScore===null?'—':`${m.averageScore}%`},
+    {label:'Weekly task in progress',  value: m.taskInProgress},
+    {label:'Weekly task done',         value: m.taskDone},
+    {label:'Syllabus progress',        value: `${m.syllabusPercent}%`},
+    {label:'Past papers done',         value: m.papersDone},
+  ].map(c=>`<div class="glass rounded-2xl p-4"><div class="text-xs text-slate-300 mb-2">${c.label}</div><div class="text-2xl font-bold">${c.value}</div></div>`).join('');
+  els.modalInProgressList.innerHTML = renderModalList(entries.filter(e=>e.status!=='done'), 'No in-progress work yet.');
+  els.modalDoneList.innerHTML       = renderModalList(entries.filter(e=>e.status==='done'),  'No completed work yet.');
+  els.subjectModal.classList.remove('hidden');
+  els.subjectModal.classList.add('flex');
+  document.body.classList.add('modal-open');
+  lucide.createIcons();
+}
+
+function closeSubjectModal() {
+  els.subjectModal.classList.add('hidden');
+  els.subjectModal.classList.remove('flex');
+  document.body.classList.remove('modal-open');
+}
+
+function renderAll() {
+  renderEntries();
+  renderSummary();
+  renderSubjectStats();
+  lucide.createIcons();
+}
+
+// ══════════════════════════════════════════════════
+// CRUD
+// ══════════════════════════════════════════════════
+
+function deleteEntry(id) {
+  saveHistory();  // snapshot before delete so Ctrl+Z can restore it
+  state.entries = state.entries.filter(e => e.id !== id);
+  saveState(); renderAll();
+}
+
+function markDone(id) {
+  saveHistory();  // snapshot before marking done so Ctrl+Z can restore it
+  const e = state.entries.find(e => e.id === id);
+  if (!e) return;
+  e.status = 'done'; e.updatedAt = Date.now();
+  saveState(); renderAll();
+  if (!els.subjectModal.classList.contains('hidden') && els.modalSubjectTitle.textContent === e.subject)
+    openSubjectModal(e.subject);
+}
+
+function reopenEntry(id) {
+  saveHistory();  // snapshot before reopening so Ctrl+Z can restore it
+  const e = state.entries.find(e => e.id === id);
+  if (!e) return;
+  e.status = 'progress'; e.updatedAt = Date.now();
+  saveState(); renderAll();
+  if (!els.subjectModal.classList.contains('hidden') && els.modalSubjectTitle.textContent === e.subject)
+    openSubjectModal(e.subject);
+}
+
+function addEntry(event) {
+  event.preventDefault();
+  const title = els.title.value.trim();
+  if (!title) return;
+  const scoreRaw = els.score.value.trim();
+  const score    = scoreRaw === '' ? '' : Math.max(0, Math.min(100, Number(scoreRaw)));
+  const now      = Date.now();
+  state.entries.unshift({
+    id: crypto.randomUUID(), type: els.type.value, subject: els.subject.value,
+    title, week: els.week.value.trim(), duration: els.duration.value, score,
+    status: els.status.value, notes: els.notes.value.trim(),
+    createdAt: now, updatedAt: now,
+  });
+  saveState();
+  els.form.reset();
+  resetFormDefaults();
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════
+// EXPORT / IMPORT / SEED
+// ══════════════════════════════════════════════════
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'ib-program-tracker-backup.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const p = JSON.parse(reader.result);
+      if (!p || !Array.isArray(p.entries)) throw new Error();
+      state = { entries: p.entries.map(e => ({duration:'', ...e})) };
+      saveState(); renderAll();
+      alert('Data imported successfully.');
+    } catch { alert('That file is not a valid backup.'); }
+  };
+  reader.readAsText(file);
+}
+
+function seedDemo() {
+  if (state.entries.length && !confirm('Replace current entries with demo data?')) return;
+  state.entries = structuredClone(demoEntries);
+  saveState(); renderAll();
+}
+
+// ══════════════════════════════════════════════════
+// EVENT LISTENERS
+// ══════════════════════════════════════════════════
+
+els.form.addEventListener('submit', addEntry);
+els.filterType.addEventListener('change', renderEntries);
+els.filterSubject.addEventListener('change', renderEntries);
+els.exportBtn.addEventListener('click', exportData);
+els.importInput.addEventListener('change', (e) => {
+  const file = e.target.files?.[0]; if (file) importData(file); e.target.value='';
+});
+els.seedBtn.addEventListener('click', seedDemo);
+els.closeModalBtn.addEventListener('click', closeSubjectModal);
+els.subjectModal.addEventListener('click', (e) => { if (e.target===els.subjectModal) closeSubjectModal(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key==='Escape' && !els.subjectModal.classList.contains('hidden')) closeSubjectModal();
+  // Ctrl+Z (Windows/Linux) or Cmd+Z (Mac) — undo last destructive action
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    // Don't intercept Ctrl+Z inside text inputs — let the browser handle it
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    e.preventDefault();
+    undo();
+  }
+});
+document.addEventListener('click', (e) => {
+  const d = e.target.closest('[data-done-id]');   if (d) { markDone(d.dataset.doneId); return; }
+  const r = e.target.closest('[data-reopen-id]'); if (r) reopenEntry(r.dataset.reopenId);
+});
+
+// ── Kick off Lucide icons on the auth screen ─────────────────
+lucide.createIcons();
+</script>
+</body>
+</html>
