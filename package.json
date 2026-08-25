@@ -1,0 +1,15 @@
+{
+  "name": "ib-progress-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IB Program Tracker — single-page app plus its unit test suite",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "node tests/function-coverage.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "24.1.3",
+    "vitest": "1.6.0"
+  }
+}
