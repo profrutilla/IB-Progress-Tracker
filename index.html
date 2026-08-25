@@ -541,10 +541,71 @@ const FIREBASE_CONFIG = {
   appId:             "%%FIREBASE_APP_ID%%"
 };
 
+// ── Error reporting helpers ──────────────────────────────────
+// Every catch block funnels through these so failures stay visible: the
+// console for developers, plus a banner or the sync status line for the user.
+function describeError(err) {
+  if (!err) return 'Unknown error';
+  if (typeof err === 'string') return err;
+  return err.message || err.code || String(err);
+}
+
+function reportError(context, err) {
+  console.error(`[IB Tracker] ${context}:`, err);
+}
+
+window.addEventListener('error', e => reportError('Uncaught error', e.error || e.message));
+window.addEventListener('unhandledrejection', e => reportError('Unhandled promise rejection', e.reason));
+
+// Shown on the auth screen when the app cannot start at all.
+function showStartupError(message) {
+  const banner = document.getElementById('authError');
+  if (!banner) return;
+  banner.textContent = message;
+  banner.classList.remove('hidden');
+}
+
+// Icons come from a CDN — a failed load must not break the caller.
+function refreshIcons() {
+  try {
+    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+  } catch (err) {
+    reportError('Rendering icons', err);
+  }
+}
+
+// crypto.randomUUID is unavailable in insecure contexts (plain http).
+function newId() {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  } catch (err) {
+    reportError('Generating id with crypto.randomUUID', err);
+  }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 // ── Init Firebase ────────────────────────────────────────────
-const fbApp  = firebase.initializeApp(FIREBASE_CONFIG);
-const fbAuth = firebase.auth(fbApp);
-const fbDb   = firebase.firestore(fbApp);
+// A missing SDK or un-injected config used to throw here and kill the
+// rest of the script, leaving a dead-looking sign-in form.
+let fbApp = null, fbAuth = null, fbDb = null;
+try {
+  if (typeof firebase === 'undefined' || !firebase.initializeApp)
+    throw new Error('Could not load Firebase. Check your internet connection and reload the page.');
+  if (String(FIREBASE_CONFIG.apiKey).startsWith('%%'))
+    throw new Error('This build is missing its Firebase configuration, so sign-in is unavailable.');
+  fbApp  = firebase.initializeApp(FIREBASE_CONFIG);
+  fbAuth = firebase.auth(fbApp);
+  fbDb   = firebase.firestore(fbApp);
+} catch (err) {
+  reportError('Initialising Firebase', err);
+  showStartupError(describeError(err));
+}
+
+function ensureAuthReady() {
+  if (fbAuth) return true;
+  showAuthError('Sign-in is unavailable right now — please reload the page.');
+  return false;
+}
 
 // ── Constants ────────────────────────────────────────────────
 const STORAGE_KEY = 'ib-program-tracker-v2';
@@ -619,12 +680,12 @@ let SUBJECTS = [];
 const TYPE_LABELS = { task:'Weekly Task', focus:'Focus Session', syllabus:'Syllabus', paper:'Past Paper', revision:'Revision', ia:'IA Progress', ee:'EE Work' };
 
 const demoEntries = [
-  { id:crypto.randomUUID(), type:'task',     subject:'Math AA HL',            title:'Review integration techniques',      week:'Week 1',    duration:'1 hour',  score:'',  status:'progress', notes:'Focus on substitution and area problems.', createdAt:Date.now()-500000, updatedAt:Date.now()-500000 },
-  { id:crypto.randomUUID(), type:'paper',    subject:'Chemistry SL',           title:'Mock Paper 1',                       week:'March',     duration:'',        score:78,  status:'done',     notes:'Need stronger bonding explanations.',      createdAt:Date.now()-400000, updatedAt:Date.now()-400000 },
-  { id:crypto.randomUUID(), type:'syllabus', subject:'English B SL',           title:'Sharing the planet vocabulary set',  week:'Week 2',    duration:'30 min',  score:'',  status:'done',     notes:'Prepare speaking examples too.',           createdAt:Date.now()-300000, updatedAt:Date.now()-300000 },
-  { id:crypto.randomUUID(), type:'task',     subject:'Business Management HL', title:'Case study notes: marketing mix',    week:'Week 2',    duration:'45 min',  score:'',  status:'todo',     notes:'Add real-world example.',                  createdAt:Date.now()-200000, updatedAt:Date.now()-200000 },
-  { id:crypto.randomUUID(), type:'ia',       subject:'Biology SL',             title:'Draft research question options',    week:'Week 3',    duration:'25 min',  score:'',  status:'progress', notes:'Compare enzyme variables.',                createdAt:Date.now()-150000, updatedAt:Date.now()-150000 },
-  { id:crypto.randomUUID(), type:'focus',    subject:'Spanish A',              title:'Commentary reading sprint',          week:'Session 1', duration:'25 min',  score:'',  status:'todo',     notes:'Focus on rhetorical devices.',             createdAt:Date.now()-100000, updatedAt:Date.now()-100000 },
+  { id:newId(), type:'task',     subject:'Math AA HL',            title:'Review integration techniques',      week:'Week 1',    duration:'1 hour',  score:'',  status:'progress', notes:'Focus on substitution and area problems.', createdAt:Date.now()-500000, updatedAt:Date.now()-500000 },
+  { id:newId(), type:'paper',    subject:'Chemistry SL',           title:'Mock Paper 1',                       week:'March',     duration:'',        score:78,  status:'done',     notes:'Need stronger bonding explanations.',      createdAt:Date.now()-400000, updatedAt:Date.now()-400000 },
+  { id:newId(), type:'syllabus', subject:'English B SL',           title:'Sharing the planet vocabulary set',  week:'Week 2',    duration:'30 min',  score:'',  status:'done',     notes:'Prepare speaking examples too.',           createdAt:Date.now()-300000, updatedAt:Date.now()-300000 },
+  { id:newId(), type:'task',     subject:'Business Management HL', title:'Case study notes: marketing mix',    week:'Week 2',    duration:'45 min',  score:'',  status:'todo',     notes:'Add real-world example.',                  createdAt:Date.now()-200000, updatedAt:Date.now()-200000 },
+  { id:newId(), type:'ia',       subject:'Biology SL',             title:'Draft research question options',    week:'Week 3',    duration:'25 min',  score:'',  status:'progress', notes:'Compare enzyme variables.',                createdAt:Date.now()-150000, updatedAt:Date.now()-150000 },
+  { id:newId(), type:'focus',    subject:'Spanish A',              title:'Commentary reading sprint',          week:'Session 1', duration:'25 min',  score:'',  status:'todo',     notes:'Focus on rhetorical devices.',             createdAt:Date.now()-100000, updatedAt:Date.now()-100000 },
 ];
 
 // ── Element refs ─────────────────────────────────────────────
@@ -736,8 +797,10 @@ function clearAuthMessages() {
 }
 
 // Friendly Firebase error messages
-function friendlyAuthError(code) {
+function friendlyAuthError(err) {
+  const code = err && err.code;
   const map = {
+    'auth/network-request-failed': 'Network error — check your connection and try again.',
     'auth/user-not-found':      'No account found with that email.',
     'auth/wrong-password':      'Incorrect password. Please try again.',
     'auth/invalid-email':       'Please enter a valid email address.',
@@ -746,7 +809,11 @@ function friendlyAuthError(code) {
     'auth/too-many-requests':   'Too many attempts. Please wait a moment.',
     'auth/invalid-credential':  'Incorrect email or password.',
   };
-  return map[code] || `Error: ${code} — please screenshot this and report it.`;
+  if (map[code]) return map[code];
+  reportError('Authentication', err);
+  return code
+    ? `Error: ${code} — please screenshot this and report it.`
+    : `Something went wrong: ${describeError(err)} — please screenshot this and report it.`;
 }
 
 async function doLogin() {
@@ -754,11 +821,12 @@ async function doLogin() {
   const email    = els.loginEmail.value.trim();
   const password = els.loginPassword.value;
   if (!email || !password) { showAuthError('Please fill in both fields.'); return; }
+  if (!ensureAuthReady()) return;
   try {
     await fbAuth.signInWithEmailAndPassword(email, password);
     // onAuthStateChanged will handle the transition
   } catch (err) {
-    showAuthError(friendlyAuthError(err.code));
+    showAuthError(friendlyAuthError(err));
   }
 }
 
@@ -770,11 +838,12 @@ async function doSignup() {
   if (!email || !password || !confirm) { showAuthError('Please fill in all fields.'); return; }
   if (password !== confirm)            { showAuthError('Passwords do not match.'); return; }
   if (password.length < 6)            { showAuthError('Password must be at least 6 characters.'); return; }
+  if (!ensureAuthReady()) return;
   try {
     await fbAuth.createUserWithEmailAndPassword(email, password);
     // onAuthStateChanged will handle the transition
   } catch (err) {
-    showAuthError(friendlyAuthError(err.code));
+    showAuthError(friendlyAuthError(err));
   }
 }
 
@@ -782,11 +851,12 @@ async function doForgotPassword() {
   clearAuthMessages();
   const email = els.loginEmail.value.trim();
   if (!email) { showAuthError('Enter your email above first.'); return; }
+  if (!ensureAuthReady()) return;
   try {
     await fbAuth.sendPasswordResetEmail(email);
     showAuthInfo(`Reset email sent to ${email}. Check your inbox.`);
   } catch (err) {
-    showAuthError(friendlyAuthError(err.code));
+    showAuthError(friendlyAuthError(err));
   }
 }
 
@@ -798,34 +868,42 @@ document.getElementById('signupConfirm').addEventListener('keydown', e => { if (
 // AUTH STATE LISTENER  — the heart of the whole flow
 // ══════════════════════════════════════════════════
 
-fbAuth.onAuthStateChanged(async (user) => {
-  if (user) {
-    // ── Logged IN ──
-    currentUser = user;
-    els.authScreen.style.display = 'none';
-    els.appScreen.style.display  = 'block';
-    els.userEmailDisplay.textContent = user.email;
+if (fbAuth) fbAuth.onAuthStateChanged(async (user) => {
+  try {
+    if (user) {
+      // ── Logged IN ──
+      currentUser = user;
+      els.authScreen.style.display = 'none';
+      els.appScreen.style.display  = 'block';
+      els.userEmailDisplay.textContent = user.email;
 
-    // Load their localStorage data first for instant render
-    state = loadLocalState();
+      // Load their localStorage data first for instant render
+      state = loadLocalState();
 
-    // Load user's chosen subjects from Firestore profile
-    await loadUserSubjects();
+      // Load user's chosen subjects from Firestore profile
+      await loadUserSubjects();
 
-    resetFormDefaults();
-    renderAll();
+      resetFormDefaults();
+      renderAll();
 
-    // Auto-enable cloud sync since they're logged in
-    enableCloudSync();
+      // Auto-enable cloud sync since they're logged in
+      enableCloudSync();
 
-  } else {
-    // ── Logged OUT ──
-    currentUser = null;
-    SUBJECTS = [];
-    disableCloudSync();
-    els.appScreen.style.display  = 'none';
-    els.authScreen.style.display = 'flex';
-    lucide.createIcons();
+    } else {
+      // ── Logged OUT ──
+      currentUser = null;
+      SUBJECTS = [];
+      disableCloudSync();
+      els.appScreen.style.display  = 'none';
+      els.authScreen.style.display = 'flex';
+      refreshIcons();
+    }
+  } catch (err) {
+    // Without this the whole sign-in transition could fail as an
+    // unhandled rejection, leaving a half-rendered app.
+    reportError('Handling auth state change', err);
+    setSyncStatus(`Could not finish loading your data: ${describeError(err)}`, 'error');
+    setHeaderSync('error', 'Error');
   }
 });
 
@@ -837,6 +915,23 @@ fbAuth.onAuthStateChanged(async (user) => {
 // Firestore path for user profile (subjects live here)
 function userProfileRef() {
   return fbDb.collection('users').doc(currentUser.uid).collection('profile').doc('settings');
+}
+
+function subjectsCacheKey() {
+  return localStorageKey() + '-subjects';
+}
+
+// Read the offline subject cache. A corrupt cache must not break login.
+function readCachedSubjects() {
+  try {
+    const raw = localStorage.getItem(subjectsCacheKey());
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(s => typeof s === 'string') : [];
+  } catch (err) {
+    reportError('Reading cached subjects', err);
+    return [];
+  }
 }
 
 // Load subjects from Firestore. If none saved yet → first-time user → show picker.
@@ -852,10 +947,14 @@ async function loadUserSubjects() {
     }
   } catch (err) {
     // Offline or error — fall back to any locally cached subjects
-    const cached = localStorage.getItem(localStorageKey() + '-subjects');
-    SUBJECTS = cached ? JSON.parse(cached) : [];
-    if (SUBJECTS.length === 0) openSubjectPicker(true);
-    else populateSubjectSelects();
+    reportError('Loading subjects from cloud profile', err);
+    SUBJECTS = readCachedSubjects();
+    if (SUBJECTS.length === 0) {
+      openSubjectPicker(true);
+    } else {
+      populateSubjectSelects();
+      setSyncStatus(`Using subjects saved on this device — could not reach the cloud: ${describeError(err)}`, 'warning');
+    }
   }
 }
 
@@ -863,11 +962,17 @@ async function loadUserSubjects() {
 async function saveUserSubjects(chosen) {
   SUBJECTS = chosen;
   // Cache locally for offline fallback
-  localStorage.setItem(localStorageKey() + '-subjects', JSON.stringify(chosen));
+  const cachedLocally = writeLocalCache(subjectsCacheKey(), JSON.stringify(chosen));
   try {
     await userProfileRef().set({ subjects: chosen }, { merge: true });
   } catch (err) {
-    console.warn('Could not save subjects to cloud:', err.message);
+    reportError('Saving subjects to cloud', err);
+    setSyncStatus(
+      cachedLocally
+        ? `Subjects saved on this device only — cloud save failed: ${describeError(err)}`
+        : `Could not save your subjects: ${describeError(err)}`,
+      'error');
+    setHeaderSync('error', 'Error');
   }
   populateSubjectSelects();
   renderAll();
@@ -919,7 +1024,7 @@ function openSubjectPicker(isFirstTime = false) {
   els.subjectPickerModal.classList.remove('hidden');
   els.subjectPickerModal.classList.add('flex');
   document.body.classList.add('modal-open');
-  lucide.createIcons();
+  refreshIcons();
 }
 
 function updatePickerCount() {
@@ -996,13 +1101,14 @@ function trackerDocRef() {
 // identical after every save. No merging needed anywhere.
 async function pushStateToCloud() {
   if (!currentUser) return;
+  if (!fbDb) throw new Error('Cloud sync is unavailable in this session.');
   // Always try cloud first
   await trackerDocRef().set({
     entries:   state.entries,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
   // Then update local cache to match exactly
-  localStorage.setItem(localStorageKey(), JSON.stringify(state));
+  writeLocalCache(localStorageKey(), JSON.stringify(state));
 }
 
 // ── Called after every user action (add, delete, markDone…) ──
@@ -1012,13 +1118,23 @@ async function pushStateToCloud() {
 // automatically when connection is restored.
 function saveState() {
   // Optimistically update local cache first for instant UI
-  localStorage.setItem(localStorageKey(), JSON.stringify(state));
+  const cachedLocally = writeLocalCache(localStorageKey(), JSON.stringify(state));
+  if (!cachedLocally) {
+    setSyncStatus('Browser storage is unavailable — this change is not saved on this device.', 'warning');
+  }
   // Then push to cloud (Firebase handles offline queuing)
   if (sync.enabled && currentUser) {
     pushStateToCloud().catch(err => {
-      // Cloud push failed — local cache already saved above,
-      // Firebase will retry automatically when back online
-      setSyncStatus(`Offline — changes saved locally, will sync when reconnected.`, 'warning');
+      reportError('Pushing state to cloud', err);
+      if (err && err.code === 'unavailable') {
+        // Firebase will retry automatically when back online
+        setSyncStatus('Offline — changes saved locally, will sync when reconnected.', 'warning');
+      } else {
+        // Permission errors, quota errors, bad data: these never resolve on
+        // their own, so say what happened instead of blaming the network.
+        setSyncStatus(`Could not save to cloud: ${describeError(err)}`, 'error');
+        setHeaderSync('error', 'Error');
+      }
     });
   }
 }
@@ -1029,6 +1145,11 @@ function saveState() {
 // reads the new cloud state, and updates its UI instantly.
 async function enableCloudSync() {
   if (!currentUser) return;
+  if (!fbDb) {
+    setSyncStatus('Cloud sync is unavailable — reload the page to try again.', 'error');
+    setHeaderSync('error', 'Error');
+    return;
+  }
   // Tear down any existing listener first
   if (sync.unsub) { sync.unsub(); sync.unsub = null; }
   sync.enabled = true;
@@ -1047,7 +1168,8 @@ async function enableCloudSync() {
           setHeaderSync('live', 'Live');
         })
         .catch(err => {
-          setSyncStatus(`Could not save to cloud: ${err.message}`, 'error');
+          reportError('Seeding cloud document with local state', err);
+          setSyncStatus(`Could not save to cloud: ${describeError(err)}`, 'error');
           setHeaderSync('error', 'Error');
         });
       return;
@@ -1074,14 +1196,15 @@ async function enableCloudSync() {
 
     state = { entries: cloudEntries };
     // Update local cache to match cloud exactly
-    localStorage.setItem(localStorageKey(), JSON.stringify(state));
+    writeLocalCache(localStorageKey(), JSON.stringify(state));
     renderAll();
 
     setSyncStatus('Sync live. Changes on any device appear here instantly.', 'success');
     setHeaderSync('live', 'Live');
 
   }, (err) => {
-    setSyncStatus(`Sync error: ${err.message}`, 'error');
+    reportError('Cloud sync listener', err);
+    setSyncStatus(`Sync error: ${describeError(err)}`, 'error');
     setHeaderSync('error', 'Error');
   });
 }
@@ -1120,7 +1243,7 @@ els.syncToggleBtn.addEventListener('click', () => {
   syncPanelOpen = !syncPanelOpen;
   els.syncPanelBody.classList.toggle('collapsed', !syncPanelOpen);
   els.syncChevron.style.transform = syncPanelOpen ? 'rotate(180deg)' : 'rotate(0deg)';
-  lucide.createIcons();
+  refreshIcons();
 });
 
 els.enableSyncBtn.addEventListener('click',  enableCloudSync);
@@ -1129,14 +1252,26 @@ els.forcePushBtn.addEventListener('click', () => {
   if (!sync.enabled) return;
   pushStateToCloud()
     .then(() => setSyncStatus('All local data pushed to cloud.', 'success'))
-    .catch(err => setSyncStatus(`Force push failed: ${err.message}`, 'error'));
+    .catch(err => {
+      reportError('Force pushing state to cloud', err);
+      setSyncStatus(`Force push failed: ${describeError(err)}`, 'error');
+      setHeaderSync('error', 'Error');
+    });
 });
 
 // ── Sign out ─────────────────────────────────────────────────
 els.signOutBtn.addEventListener('click', async () => {
   if (!confirm('Sign out of this device?')) return;
-  disableCloudSync();
-  await fbAuth.signOut();
+  if (!ensureAuthReady()) return;
+  try {
+    // Only tear down sync once sign-out actually succeeded, so a failed
+    // sign-out does not leave the user signed in with sync switched off.
+    await fbAuth.signOut();
+    disableCloudSync();
+  } catch (err) {
+    reportError('Signing out', err);
+    setSyncStatus(`Could not sign out: ${describeError(err)}`, 'error');
+  }
 });
 
 // ══════════════════════════════════════════════════
@@ -1148,13 +1283,28 @@ function localStorageKey() {
   return currentUser ? `${STORAGE_KEY}-${currentUser.uid}` : STORAGE_KEY;
 }
 
+// Local writes fail in private mode and when the quota is exceeded; the
+// caller decides how loudly to complain.
+function writeLocalCache(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    reportError(`Writing "${key}" to local storage`, err);
+    return false;
+  }
+}
+
 function loadLocalState() {
   try {
     const raw = localStorage.getItem(localStorageKey());
     if (!raw) return { entries: [] };
     const p   = JSON.parse(raw);
     return { entries: Array.isArray(p.entries) ? p.entries : [] };
-  } catch { return { entries: [] }; }
+  } catch (err) {
+    reportError('Reading saved data from local storage', err);
+    return { entries: [] };
+  }
 }
 
 // saveState is defined above in the CLOUD SYNC section.
@@ -1257,7 +1407,7 @@ function renderEntries() {
   els.entriesDone.innerHTML       = done.length   ? done.map(e  => renderEntryCard(e, false)).join('') : renderEmptyState('No done entries');
   document.querySelectorAll('[data-delete-id]').forEach(b => b.addEventListener('click', () => deleteEntry(b.dataset.deleteId)));
   document.querySelectorAll('[data-done-id]').forEach(b   => b.addEventListener('click', () => markDone(b.dataset.doneId)));
-  lucide.createIcons();
+  refreshIcons();
 }
 
 function renderSummary() {
@@ -1366,7 +1516,7 @@ function openSubjectModal(subject) {
   els.subjectModal.classList.remove('hidden');
   els.subjectModal.classList.add('flex');
   document.body.classList.add('modal-open');
-  lucide.createIcons();
+  refreshIcons();
 }
 
 function closeSubjectModal() {
@@ -1379,7 +1529,7 @@ function renderAll() {
   renderEntries();
   renderSummary();
   renderSubjectStats();
-  lucide.createIcons();
+  refreshIcons();
 }
 
 // ══════════════════════════════════════════════════
@@ -1420,7 +1570,7 @@ function addEntry(event) {
   const score    = scoreRaw === '' ? '' : Math.max(0, Math.min(100, Number(scoreRaw)));
   const now      = Date.now();
   state.entries.unshift({
-    id: crypto.randomUUID(), type: els.type.value, subject: els.subject.value,
+    id: newId(), type: els.type.value, subject: els.subject.value,
     title, week: els.week.value.trim(), duration: els.duration.value, score,
     status: els.status.value, notes: els.notes.value.trim(),
     createdAt: now, updatedAt: now,
@@ -1436,30 +1586,53 @@ function addEntry(event) {
 // ══════════════════════════════════════════════════
 
 function exportData() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = 'ib-program-tracker-backup.json'; a.click();
-  URL.revokeObjectURL(url);
+  let url = null;
+  try {
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'ib-program-tracker-backup.json'; a.click();
+  } catch (err) {
+    reportError('Exporting backup', err);
+    alert(`Could not create the backup file: ${describeError(err)}`);
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+  }
 }
 
 function importData(file) {
   const reader = new FileReader();
+  // Without this handler a failed read did nothing at all.
+  reader.onerror = () => {
+    reportError('Reading backup file', reader.error);
+    alert(`Could not read that file: ${describeError(reader.error)}`);
+  };
   reader.onload = () => {
     try {
       const p = JSON.parse(reader.result);
-      if (!p || !Array.isArray(p.entries)) throw new Error();
+      if (!p || !Array.isArray(p.entries)) throw new Error('the file has no "entries" list');
       state = { entries: p.entries.map(e => ({duration:'', ...e})) };
       saveState(); renderAll();
       alert('Data imported successfully.');
-    } catch { alert('That file is not a valid backup.'); }
+    } catch (err) {
+      reportError('Importing backup', err);
+      alert(`That file is not a valid backup: ${describeError(err)}.`);
+    }
   };
   reader.readAsText(file);
 }
 
 function seedDemo() {
   if (state.entries.length && !confirm('Replace current entries with demo data?')) return;
-  state.entries = structuredClone(demoEntries);
+  try {
+    state.entries = typeof structuredClone === 'function'
+      ? structuredClone(demoEntries)
+      : JSON.parse(JSON.stringify(demoEntries));
+  } catch (err) {
+    reportError('Cloning demo entries', err);
+    alert(`Could not load the demo data: ${describeError(err)}`);
+    return;
+  }
   saveState(); renderAll();
 }
 
@@ -1494,7 +1667,7 @@ document.addEventListener('click', (e) => {
 });
 
 // ── Kick off Lucide icons on the auth screen ─────────────────
-lucide.createIcons();
+refreshIcons();
 </script>
 </body>
 </html>
