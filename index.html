@@ -22,7 +22,7 @@
       }
     }
   </script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@0.462.0"></script>
 
   <!-- Firebase SDKs (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -617,6 +617,37 @@ const ALL_SUBJECTS = IB_GROUPS.flatMap(g => g.subjects);
 // Starts empty; populated after login.
 let SUBJECTS = [];
 const TYPE_LABELS = { task:'Weekly Task', focus:'Focus Session', syllabus:'Syllabus', paper:'Past Paper', revision:'Revision', ia:'IA Progress', ee:'EE Work' };
+const VALID_TYPES    = Object.keys(TYPE_LABELS);
+const VALID_STATUSES = ['todo', 'progress', 'done'];
+
+// Normalize an entry from any untrusted source (imported backup files,
+// localStorage, cloud snapshots) into the exact shape the app expects.
+function sanitizeEntry(e) {
+  if (!e || typeof e !== 'object') return null;
+  const scoreNum = Number(e.score);
+  const hasScore = e.score !== '' && e.score !== null && e.score !== undefined && !isNaN(scoreNum);
+  return {
+    id:        typeof e.id === 'string' && /^[\w-]{1,64}$/.test(e.id) ? e.id : crypto.randomUUID(),
+    type:      VALID_TYPES.includes(e.type) ? e.type : 'task',
+    subject:   String(e.subject ?? ''),
+    title:     String(e.title ?? ''),
+    week:      String(e.week ?? ''),
+    duration:  String(e.duration ?? ''),
+    score:     hasScore ? Math.max(0, Math.min(100, scoreNum)) : '',
+    status:    VALID_STATUSES.includes(e.status) ? e.status : 'todo',
+    notes:     String(e.notes ?? ''),
+    createdAt: Number(e.createdAt) || Date.now(),
+    updatedAt: Number(e.updatedAt) || Date.now(),
+  };
+}
+
+function sanitizeEntries(list) {
+  return Array.isArray(list) ? list.map(sanitizeEntry).filter(Boolean) : [];
+}
+
+function sanitizeSubjects(list) {
+  return Array.isArray(list) ? list.filter(s => typeof s === 'string') : [];
+}
 
 const demoEntries = [
   { id:crypto.randomUUID(), type:'task',     subject:'Math AA HL',            title:'Review integration techniques',      week:'Week 1',    duration:'1 hour',  score:'',  status:'progress', notes:'Focus on substitution and area problems.', createdAt:Date.now()-500000, updatedAt:Date.now()-500000 },
@@ -843,8 +874,8 @@ function userProfileRef() {
 async function loadUserSubjects() {
   try {
     const doc = await userProfileRef().get();
-    if (doc.exists && Array.isArray(doc.data().subjects) && doc.data().subjects.length > 0) {
-      SUBJECTS = doc.data().subjects;
+    if (doc.exists && sanitizeSubjects(doc.data().subjects).length > 0) {
+      SUBJECTS = sanitizeSubjects(doc.data().subjects);
       populateSubjectSelects();
     } else {
       // First time — show the subject picker (no close button)
@@ -853,7 +884,7 @@ async function loadUserSubjects() {
   } catch (err) {
     // Offline or error — fall back to any locally cached subjects
     const cached = localStorage.getItem(localStorageKey() + '-subjects');
-    SUBJECTS = cached ? JSON.parse(cached) : [];
+    SUBJECTS = cached ? sanitizeSubjects(JSON.parse(cached)) : [];
     if (SUBJECTS.length === 0) openSubjectPicker(true);
     else populateSubjectSelects();
   }
@@ -1068,9 +1099,7 @@ async function enableCloudSync() {
     // Cloud is the truth. Replace local state entirely.
     // This is what makes deletions, additions, edits from your
     // phone appear on the laptop (and vice versa) in real time.
-    const cloudEntries = Array.isArray(snapshot.data()?.entries)
-      ? snapshot.data().entries
-      : [];
+    const cloudEntries = sanitizeEntries(snapshot.data()?.entries);
 
     state = { entries: cloudEntries };
     // Update local cache to match cloud exactly
@@ -1153,7 +1182,7 @@ function loadLocalState() {
     const raw = localStorage.getItem(localStorageKey());
     if (!raw) return { entries: [] };
     const p   = JSON.parse(raw);
-    return { entries: Array.isArray(p.entries) ? p.entries : [] };
+    return { entries: sanitizeEntries(p.entries) };
   } catch { return { entries: [] }; }
 }
 
@@ -1186,7 +1215,7 @@ function escapeHtml(str) {
 
 function populateSubjectSelects() {
   const list = SUBJECTS.length > 0 ? SUBJECTS : ALL_SUBJECTS;
-  const opts = list.map(s => `<option>${s}</option>`).join('');
+  const opts = list.map(s => `<option>${escapeHtml(s)}</option>`).join('');
   els.subject.innerHTML       = opts;
   els.filterSubject.innerHTML = `<option value="all">All subjects</option>${opts}`;
 }
@@ -1217,7 +1246,7 @@ function renderEmptyState(msg) {
 
 function renderEntryCard(entry, showDone = false) {
   const doneBtn = showDone
-    ? `<button data-done-id="${entry.id}" class="shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-emerald-400/15 hover:bg-emerald-400/25 transition border border-emerald-300/20 text-emerald-100 text-sm font-medium"><i data-lucide="check" class="w-4 h-4"></i>DONE</button>`
+    ? `<button data-done-id="${escapeHtml(entry.id)}" class="shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-emerald-400/15 hover:bg-emerald-400/25 transition border border-emerald-300/20 text-emerald-100 text-sm font-medium"><i data-lucide="check" class="w-4 h-4"></i>DONE</button>`
     : '';
   return `
     <div class="glass rounded-3xl p-4 animate-fadeUp">
@@ -1225,21 +1254,21 @@ function renderEntryCard(entry, showDone = false) {
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2 mb-2">
             <span class="text-xs px-2.5 py-1 rounded-full ${typeBadge(entry.type)}">${prettyType(entry.type)}</span>
-            <span class="text-xs px-2.5 py-1 rounded-full ${statusBadge(entry.status)}">${entry.status}</span>
+            <span class="text-xs px-2.5 py-1 rounded-full ${statusBadge(entry.status)}">${escapeHtml(entry.status)}</span>
             <span class="text-xs px-2.5 py-1 rounded-full bg-white/10 text-slate-100 border border-white/10">${escapeHtml(entry.subject)}</span>
           </div>
           <h3 class="font-semibold text-lg leading-snug break-words">${escapeHtml(entry.title)}</h3>
           <div class="mt-2 text-sm text-slate-200/75 flex flex-wrap gap-4">
             ${entry.week     ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="calendar-range" class="w-4 h-4"></i>${escapeHtml(entry.week)}</span>` : ''}
             ${entry.duration ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="timer" class="w-4 h-4"></i>${escapeHtml(entry.duration)}</span>` : ''}
-            ${entry.score !== '' && entry.score !== null ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="percent" class="w-4 h-4"></i>${entry.score}%</span>` : ''}
+            ${entry.score !== '' && entry.score !== null ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="percent" class="w-4 h-4"></i>${escapeHtml(entry.score)}%</span>` : ''}
             <span class="inline-flex items-center gap-1.5"><i data-lucide="clock-3" class="w-4 h-4"></i>${new Date(entry.createdAt).toLocaleString()}</span>
           </div>
           ${entry.notes ? `<p class="mt-3 text-sm text-slate-100/90 leading-relaxed whitespace-pre-wrap">${escapeHtml(entry.notes)}</p>` : ''}
         </div>
         <div class="flex flex-col gap-2 items-end shrink-0">
           ${doneBtn}
-          <button data-delete-id="${entry.id}" class="rounded-2xl p-3 bg-rose-400/15 hover:bg-rose-400/25 transition" title="Delete">
+          <button data-delete-id="${escapeHtml(entry.id)}" class="rounded-2xl p-3 bg-rose-400/15 hover:bg-rose-400/25 transition" title="Delete">
             <i data-lucide="trash" class="w-4 h-4 text-rose-200"></i>
           </button>
         </div>
@@ -1306,7 +1335,7 @@ function renderSubjectStats() {
     const m = getSubjectMetrics(subject);
     return `<button data-open-subject="${escapeHtml(subject)}" class="glass rounded-2xl p-4 text-left w-full hover:bg-white/12 transition">
       <div class="flex items-start justify-between gap-3 mb-2">
-        <div><h3 class="font-medium leading-snug">${subject}</h3>
+        <div><h3 class="font-medium leading-snug">${escapeHtml(subject)}</h3>
           <p class="text-xs text-slate-200/65 mt-1">${m.completed}/${m.total} items complete</p></div>
         <span class="text-sm font-semibold text-slate-100">${m.percent}%</span>
       </div>
@@ -1331,20 +1360,20 @@ function renderModalList(entries, emptyText) {
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2 mb-2">
             <span class="text-xs px-2.5 py-1 rounded-full ${typeBadge(e.type)}">${prettyType(e.type)}</span>
-            <span class="text-xs px-2.5 py-1 rounded-full ${statusBadge(e.status)}">${e.status}</span>
+            <span class="text-xs px-2.5 py-1 rounded-full ${statusBadge(e.status)}">${escapeHtml(e.status)}</span>
           </div>
           <h4 class="font-medium break-words">${escapeHtml(e.title)}</h4>
           <div class="mt-2 text-xs text-slate-300 flex flex-wrap gap-3">
             ${e.week?`<span>${escapeHtml(e.week)}</span>`:''}
             ${e.duration?`<span>${escapeHtml(e.duration)}</span>`:''}
-            ${e.score!==''&&e.score!==null?`<span>${e.score}%</span>`:''}
+            ${e.score!==''&&e.score!==null?`<span>${escapeHtml(e.score)}%</span>`:''}
           </div>
           ${e.notes?`<p class="mt-2 text-sm text-slate-200/80 whitespace-pre-wrap">${escapeHtml(e.notes)}</p>`:''}
         </div>
         <div class="shrink-0 flex flex-col gap-2">
           ${e.status!=='done'
-            ? `<button data-done-id="${e.id}" class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-emerald-400/15 hover:bg-emerald-400/25 border border-emerald-300/20 text-emerald-100 text-xs font-semibold transition"><i data-lucide="check" class="w-4 h-4"></i>Done</button>`
-            : `<button data-reopen-id="${e.id}" class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-300/20 text-amber-100 text-xs font-semibold transition"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>Reopen</button>`}
+            ? `<button data-done-id="${escapeHtml(e.id)}" class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-emerald-400/15 hover:bg-emerald-400/25 border border-emerald-300/20 text-emerald-100 text-xs font-semibold transition"><i data-lucide="check" class="w-4 h-4"></i>Done</button>`
+            : `<button data-reopen-id="${escapeHtml(e.id)}" class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-300/20 text-amber-100 text-xs font-semibold transition"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>Reopen</button>`}
         </div>
       </div>
     </div>`).join('');
@@ -1449,7 +1478,7 @@ function importData(file) {
     try {
       const p = JSON.parse(reader.result);
       if (!p || !Array.isArray(p.entries)) throw new Error();
-      state = { entries: p.entries.map(e => ({duration:'', ...e})) };
+      state = { entries: sanitizeEntries(p.entries) };
       saveState(); renderAll();
       alert('Data imported successfully.');
     } catch { alert('That file is not a valid backup.'); }
