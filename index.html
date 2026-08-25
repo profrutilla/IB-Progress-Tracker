@@ -96,6 +96,16 @@
              outline:none; color:#f8fafc; transition:border-color .2s; }
     .field:focus { border-color:#818cf8; }
     .field::placeholder { color:rgba(255,255,255,0.3); }
+    .field-sm   { width:auto; padding:.625rem 1rem; }
+    .field-area { resize:none; }
+
+    /* ── Header action card ── */
+    .action-card {
+      background:rgba(255,255,255,0.08); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+      border:1px solid rgba(255,255,255,0.12); box-shadow:0 8px 32px rgba(15,23,42,0.28);
+      border-radius:1rem; padding:1rem; text-align:left; transition:background .15s;
+    }
+    .action-card:hover { background:rgba(255,255,255,0.15); }
   </style>
 </head>
 <body class="text-white selection:bg-indigo-400/30 selection:text-white">
@@ -198,32 +208,32 @@
         </p>
       </div>
       <div class="grid grid-cols-2 gap-3 min-w-[260px]">
-        <button id="exportBtn" class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition">
+        <button id="exportBtn" class="action-card">
           <div class="flex items-center gap-3">
             <span class="p-2 rounded-xl bg-emerald-400/20"><i data-lucide="download" class="w-5 h-5 text-emerald-200"></i></span>
             <div><div class="font-semibold">Export</div><div class="text-xs text-slate-200/70">Save backup JSON</div></div>
           </div>
         </button>
-        <label class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition cursor-pointer">
+        <label class="action-card cursor-pointer">
           <div class="flex items-center gap-3">
             <span class="p-2 rounded-xl bg-cyan-400/20"><i data-lucide="upload" class="w-5 h-5 text-cyan-200"></i></span>
             <div><div class="font-semibold">Import</div><div class="text-xs text-slate-200/70">Restore backup</div></div>
           </div>
           <input id="importInput" type="file" accept="application/json" class="hidden" />
         </label>
-        <button id="seedBtn" class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition">
+        <button id="seedBtn" class="action-card">
           <div class="flex items-center gap-3">
             <span class="p-2 rounded-xl bg-violet-400/20"><i data-lucide="wand-sparkles" class="w-5 h-5 text-violet-200"></i></span>
             <div><div class="font-semibold">Load Demo</div><div class="text-xs text-slate-200/70">See example entries</div></div>
           </div>
         </button>
-        <button id="mySubjectsBtn" class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition">
+        <button id="mySubjectsBtn" class="action-card">
           <div class="flex items-center gap-3">
             <span class="p-2 rounded-xl bg-amber-400/20"><i data-lucide="book-marked" class="w-5 h-5 text-amber-200"></i></span>
             <div><div class="font-semibold">My Subjects</div><div class="text-xs text-slate-200/70">Add or remove subjects</div></div>
           </div>
         </button>
-        <button id="signOutBtn" class="glass rounded-2xl px-4 py-4 text-left hover:bg-white/15 transition">
+        <button id="signOutBtn" class="action-card">
           <div class="flex items-center gap-3">
             <span class="p-2 rounded-xl bg-rose-400/20"><i data-lucide="log-out" class="w-5 h-5 text-rose-200"></i></span>
             <div><div class="font-semibold">Sign Out</div><div class="text-xs text-slate-200/70">Leave this device</div></div>
@@ -332,7 +342,7 @@
         <form id="entryForm" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           <div>
             <label class="block text-sm text-slate-200/80 mb-2">Type</label>
-            <select id="entryType" class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300">
+            <select id="entryType" class="field">
               <option value="task">Weekly study task</option>
               <option value="focus">Timed focus session</option>
               <option value="syllabus">Syllabus item</option>
@@ -344,21 +354,19 @@
           </div>
           <div>
             <label class="block text-sm text-slate-200/80 mb-2">Subject</label>
-            <select id="entrySubject" class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300"></select>
+            <select id="entrySubject" class="field"></select>
           </div>
           <div>
             <label class="block text-sm text-slate-200/80 mb-2">Title</label>
-            <input id="entryTitle" type="text" placeholder="e.g. Calculus limits review"
-              class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300" required />
+            <input id="entryTitle" type="text" placeholder="e.g. Calculus limits review" class="field" required />
           </div>
           <div>
             <label class="block text-sm text-slate-200/80 mb-2">Week / Session</label>
-            <input id="entryWeek" type="text" placeholder="e.g. Week 1 or May 2025"
-              class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300" />
+            <input id="entryWeek" type="text" placeholder="e.g. Week 1 or May 2025" class="field" />
           </div>
           <div>
             <label class="block text-sm text-slate-200/80 mb-2">Duration</label>
-            <select id="entryDuration" class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300">
+            <select id="entryDuration" class="field">
               <option value="">Choose duration</option>
               <option>15 min</option><option>20 min</option><option>25 min</option>
               <option>30 min</option><option>45 min</option><option>1 hour</option>
@@ -367,12 +375,11 @@
           </div>
           <div>
             <label class="block text-sm text-slate-200/80 mb-2">Score % (optional)</label>
-            <input id="entryScore" type="number" min="0" max="100" placeholder="Only for papers"
-              class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300" />
+            <input id="entryScore" type="number" min="0" max="100" placeholder="Only for papers" class="field" />
           </div>
           <div>
             <label class="block text-sm text-slate-200/80 mb-2">Status</label>
-            <select id="entryStatus" class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300">
+            <select id="entryStatus" class="field">
               <option value="todo">To do</option>
               <option value="progress">In progress</option>
               <option value="done">Done</option>
@@ -381,7 +388,7 @@
           <div class="md:col-span-2 xl:col-span-2">
             <label class="block text-sm text-slate-200/80 mb-2">Notes</label>
             <textarea id="entryNotes" rows="3" placeholder="Add details, weak points, or next steps"
-              class="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 outline-none focus:border-indigo-300 resize-none"></textarea>
+              class="field field-area"></textarea>
           </div>
           <div class="md:col-span-2 xl:col-span-3 flex justify-end">
             <button type="submit"
@@ -400,7 +407,7 @@
             <p class="text-sm text-slate-200/70 mt-1">Split into in-progress and done.</p>
           </div>
           <div class="flex flex-wrap gap-3">
-            <select id="filterType" class="rounded-2xl bg-white/10 border border-white/10 px-4 py-2.5 outline-none">
+            <select id="filterType" class="field field-sm">
               <option value="all">All types</option>
               <option value="task">Weekly tasks</option>
               <option value="focus">Timed focus sessions</option>
@@ -410,7 +417,7 @@
               <option value="ia">IA progress</option>
               <option value="ee">EE work</option>
             </select>
-            <select id="filterSubject" class="rounded-2xl bg-white/10 border border-white/10 px-4 py-2.5 outline-none"></select>
+            <select id="filterSubject" class="field field-sm"></select>
           </div>
         </div>
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -706,6 +713,54 @@ const sync = {
 };
 
 // ══════════════════════════════════════════════════
+// SHARED UTILITIES
+// ══════════════════════════════════════════════════
+
+// ── Modals ───────────────────────────────────────────────────
+function openModal(modal) {
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  document.body.classList.add('modal-open');
+  lucide.createIcons();
+}
+
+function closeModal(modal) {
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+  document.body.classList.remove('modal-open');
+}
+
+function isModalOpen(modal) {
+  return !modal.classList.contains('hidden');
+}
+
+// ── Entry aggregation ────────────────────────────────────────
+const isDone      = e => e.status === 'done';
+const ofType      = (entries, type) => entries.filter(e => e.type === type);
+const countDone   = entries => entries.filter(isDone).length;
+const percentOf   = (part, total) => total ? Math.round((part / total) * 100) : 0;
+const donePercent = entries => percentOf(countDone(entries), entries.length);
+
+// Mean of the numeric scores in `entries`, or null when there are none
+function averageScore(entries) {
+  const scores = entries.map(e => Number(e.score)).filter(v => !isNaN(v) && v >= 0);
+  return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+}
+
+const formatScore = score => score === null ? '—' : `${score}%`;
+
+// Entries limited to the subjects the user is currently taking
+function activeEntries() {
+  return SUBJECTS.length === 0
+    ? state.entries
+    : state.entries.filter(e => SUBJECTS.includes(e.subject));
+}
+
+function entriesForSubject(subject) {
+  return state.entries.filter(e => e.subject === subject);
+}
+
+// ══════════════════════════════════════════════════
 // AUTH SCREEN LOGIC
 // ══════════════════════════════════════════════════
 
@@ -718,21 +773,30 @@ function showTab(tab) {
   clearAuthMessages();
 }
 
-function showAuthError(msg) {
-  els.authError.textContent = msg;
-  els.authError.classList.remove('hidden');
-  els.authInfo.classList.add('hidden');
+function showAuthMessage(kind, msg) {
+  const shown  = kind === 'error' ? els.authError : els.authInfo;
+  const hidden = kind === 'error' ? els.authInfo  : els.authError;
+  shown.textContent = msg;
+  shown.classList.remove('hidden');
+  hidden.classList.add('hidden');
 }
 
-function showAuthInfo(msg) {
-  els.authInfo.textContent = msg;
-  els.authInfo.classList.remove('hidden');
-  els.authError.classList.add('hidden');
-}
+const showAuthError = msg => showAuthMessage('error', msg);
+const showAuthInfo  = msg => showAuthMessage('info',  msg);
 
 function clearAuthMessages() {
   els.authError.classList.add('hidden');
   els.authInfo.classList.add('hidden');
+}
+
+// Every auth action clears previous messages and reports failures the same way
+async function runAuthAction(action) {
+  clearAuthMessages();
+  try {
+    await action();
+  } catch (err) {
+    showAuthError(friendlyAuthError(err.code));
+  }
 }
 
 // Friendly Firebase error messages
@@ -749,50 +813,44 @@ function friendlyAuthError(code) {
   return map[code] || `Error: ${code} — please screenshot this and report it.`;
 }
 
-async function doLogin() {
-  clearAuthMessages();
-  const email    = els.loginEmail.value.trim();
-  const password = els.loginPassword.value;
-  if (!email || !password) { showAuthError('Please fill in both fields.'); return; }
-  try {
+function doLogin() {
+  return runAuthAction(async () => {
+    const email    = els.loginEmail.value.trim();
+    const password = els.loginPassword.value;
+    if (!email || !password) { showAuthError('Please fill in both fields.'); return; }
+    // onAuthStateChanged will handle the transition
     await fbAuth.signInWithEmailAndPassword(email, password);
-    // onAuthStateChanged will handle the transition
-  } catch (err) {
-    showAuthError(friendlyAuthError(err.code));
-  }
+  });
 }
 
-async function doSignup() {
-  clearAuthMessages();
-  const email    = els.signupEmail.value.trim();
-  const password = els.signupPassword.value;
-  const confirm  = els.signupConfirm.value;
-  if (!email || !password || !confirm) { showAuthError('Please fill in all fields.'); return; }
-  if (password !== confirm)            { showAuthError('Passwords do not match.'); return; }
-  if (password.length < 6)            { showAuthError('Password must be at least 6 characters.'); return; }
-  try {
+function doSignup() {
+  return runAuthAction(async () => {
+    const email    = els.signupEmail.value.trim();
+    const password = els.signupPassword.value;
+    const confirm  = els.signupConfirm.value;
+    if (!email || !password || !confirm) { showAuthError('Please fill in all fields.'); return; }
+    if (password !== confirm)            { showAuthError('Passwords do not match.'); return; }
+    if (password.length < 6)             { showAuthError('Password must be at least 6 characters.'); return; }
+    // onAuthStateChanged will handle the transition
     await fbAuth.createUserWithEmailAndPassword(email, password);
-    // onAuthStateChanged will handle the transition
-  } catch (err) {
-    showAuthError(friendlyAuthError(err.code));
-  }
+  });
 }
 
-async function doForgotPassword() {
-  clearAuthMessages();
-  const email = els.loginEmail.value.trim();
-  if (!email) { showAuthError('Enter your email above first.'); return; }
-  try {
+function doForgotPassword() {
+  return runAuthAction(async () => {
+    const email = els.loginEmail.value.trim();
+    if (!email) { showAuthError('Enter your email above first.'); return; }
     await fbAuth.sendPasswordResetEmail(email);
     showAuthInfo(`Reset email sent to ${email}. Check your inbox.`);
-  } catch (err) {
-    showAuthError(friendlyAuthError(err.code));
-  }
+  });
 }
 
 // Enter key support on auth forms
-document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-document.getElementById('signupConfirm').addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
+function submitOnEnter(input, action) {
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') action(); });
+}
+submitOnEnter(els.loginPassword,  doLogin);
+submitOnEnter(els.signupConfirm, doSignup);
 
 // ══════════════════════════════════════════════════
 // AUTH STATE LISTENER  — the heart of the whole flow
@@ -839,6 +897,10 @@ function userProfileRef() {
   return fbDb.collection('users').doc(currentUser.uid).collection('profile').doc('settings');
 }
 
+function subjectsCacheKey() {
+  return `${localStorageKey()}-subjects`;
+}
+
 // Load subjects from Firestore. If none saved yet → first-time user → show picker.
 async function loadUserSubjects() {
   try {
@@ -852,7 +914,7 @@ async function loadUserSubjects() {
     }
   } catch (err) {
     // Offline or error — fall back to any locally cached subjects
-    const cached = localStorage.getItem(localStorageKey() + '-subjects');
+    const cached = localStorage.getItem(subjectsCacheKey());
     SUBJECTS = cached ? JSON.parse(cached) : [];
     if (SUBJECTS.length === 0) openSubjectPicker(true);
     else populateSubjectSelects();
@@ -863,7 +925,7 @@ async function loadUserSubjects() {
 async function saveUserSubjects(chosen) {
   SUBJECTS = chosen;
   // Cache locally for offline fallback
-  localStorage.setItem(localStorageKey() + '-subjects', JSON.stringify(chosen));
+  localStorage.setItem(subjectsCacheKey(), JSON.stringify(chosen));
   try {
     await userProfileRef().set({ subjects: chosen }, { merge: true });
   } catch (err) {
@@ -916,10 +978,7 @@ function openSubjectPicker(isFirstTime = false) {
     });
   });
 
-  els.subjectPickerModal.classList.remove('hidden');
-  els.subjectPickerModal.classList.add('flex');
-  document.body.classList.add('modal-open');
-  lucide.createIcons();
+  openModal(els.subjectPickerModal);
 }
 
 function updatePickerCount() {
@@ -930,9 +989,7 @@ function updatePickerCount() {
 }
 
 function closeSubjectPicker() {
-  els.subjectPickerModal.classList.add('hidden');
-  els.subjectPickerModal.classList.remove('flex');
-  document.body.classList.remove('modal-open');
+  closeModal(els.subjectPickerModal);
 }
 
 // Save button
@@ -1002,7 +1059,7 @@ async function pushStateToCloud() {
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
   // Then update local cache to match exactly
-  localStorage.setItem(localStorageKey(), JSON.stringify(state));
+  cacheStateLocally();
 }
 
 // ── Called after every user action (add, delete, markDone…) ──
@@ -1012,7 +1069,7 @@ async function pushStateToCloud() {
 // automatically when connection is restored.
 function saveState() {
   // Optimistically update local cache first for instant UI
-  localStorage.setItem(localStorageKey(), JSON.stringify(state));
+  cacheStateLocally();
   // Then push to cloud (Firebase handles offline queuing)
   if (sync.enabled && currentUser) {
     pushStateToCloud().catch(err => {
@@ -1033,8 +1090,7 @@ async function enableCloudSync() {
   if (sync.unsub) { sync.unsub(); sync.unsub = null; }
   sync.enabled = true;
   els.forcePushBtn.classList.remove('hidden');
-  setSyncStatus('Connecting to your cloud data…', 'connecting');
-  setHeaderSync('connecting', 'Connecting…');
+  markSync('connecting', 'Connecting to your cloud data…', 'connecting', 'Connecting…');
 
   sync.unsub = trackerDocRef().onSnapshot((snapshot) => {
     // ── snapshot.exists = false: first time this user ever syncs ──
@@ -1042,14 +1098,8 @@ async function enableCloudSync() {
       // No cloud data yet. Push whatever is local up to cloud
       // so this device's data is not lost.
       pushStateToCloud()
-        .then(() => {
-          setSyncStatus('Sync live. Changes on any device appear here instantly.', 'success');
-          setHeaderSync('live', 'Live');
-        })
-        .catch(err => {
-          setSyncStatus(`Could not save to cloud: ${err.message}`, 'error');
-          setHeaderSync('error', 'Error');
-        });
+        .then(markSyncLive)
+        .catch(err => markSyncError(`Could not save to cloud: ${err.message}`));
       return;
     }
 
@@ -1059,8 +1109,7 @@ async function enableCloudSync() {
     // We skip re-rendering to avoid a flicker — the UI is already
     // up to date because saveState() updated it optimistically.
     if (snapshot.metadata.hasPendingWrites) {
-      setSyncStatus('Sync live. Changes on any device appear here instantly.', 'success');
-      setHeaderSync('live', 'Live');
+      markSyncLive();
       return;
     }
 
@@ -1074,24 +1123,19 @@ async function enableCloudSync() {
 
     state = { entries: cloudEntries };
     // Update local cache to match cloud exactly
-    localStorage.setItem(localStorageKey(), JSON.stringify(state));
+    cacheStateLocally();
     renderAll();
 
-    setSyncStatus('Sync live. Changes on any device appear here instantly.', 'success');
-    setHeaderSync('live', 'Live');
+    markSyncLive();
 
-  }, (err) => {
-    setSyncStatus(`Sync error: ${err.message}`, 'error');
-    setHeaderSync('error', 'Error');
-  });
+  }, (err) => markSyncError(`Sync error: ${err.message}`));
 }
 
 function disableCloudSync() {
   if (sync.unsub) { sync.unsub(); sync.unsub = null; }
   sync.enabled = false;
   els.forcePushBtn.classList.add('hidden');
-  setSyncStatus('Local mode. Click Enable Sync to connect.', 'neutral');
-  setHeaderSync('offline', 'Not connected');
+  markSync('neutral', 'Local mode. Click Enable Sync to connect.', 'offline', 'Not connected');
 }
 
 // ── Sync status UI ───────────────────────────────────────────
@@ -1113,6 +1157,16 @@ function setHeaderSync(dotState, label) {
   els.syncHeaderDot.className   = `sync-dot ${map[dotState] || 'offline'}`;
   els.syncHeaderLabel.textContent = label;
 }
+
+// The panel banner and the header dot always move together
+function markSync(tone, message, dotState, label) {
+  setSyncStatus(message, tone);
+  setHeaderSync(dotState, label);
+}
+
+const SYNC_LIVE_MESSAGE = 'Sync live. Changes on any device appear here instantly.';
+const markSyncLive  = ()        => markSync('success', SYNC_LIVE_MESSAGE, 'live', 'Live');
+const markSyncError = (message) => markSync('error',   message,           'error', 'Error');
 
 // ── Sync panel toggle ────────────────────────────────────────
 let syncPanelOpen = false;
@@ -1148,6 +1202,10 @@ function localStorageKey() {
   return currentUser ? `${STORAGE_KEY}-${currentUser.uid}` : STORAGE_KEY;
 }
 
+function cacheStateLocally() {
+  localStorage.setItem(localStorageKey(), JSON.stringify(state));
+}
+
 function loadLocalState() {
   try {
     const raw = localStorage.getItem(localStorageKey());
@@ -1168,16 +1226,48 @@ function statusBadge(s) {
   if (s === 'progress') return 'bg-amber-400/20 text-amber-200 border border-amber-300/20';
   return 'bg-slate-400/20 text-slate-200 border border-white/10';
 }
-function typeBadge(t) {
-  if (t==='task')     return 'bg-cyan-400/20 text-cyan-200';
-  if (t==='paper')    return 'bg-violet-400/20 text-violet-200';
-  if (t==='syllabus') return 'bg-indigo-400/20 text-indigo-200';
-  if (t==='focus')    return 'bg-fuchsia-400/20 text-fuchsia-200';
-  if (t==='revision') return 'bg-sky-400/20 text-sky-200';
-  if (t==='ia')       return 'bg-orange-400/20 text-orange-200';
-  return 'bg-rose-400/20 text-rose-200';
-}
+const TYPE_BADGES = {
+  task:     'bg-cyan-400/20 text-cyan-200',
+  paper:    'bg-violet-400/20 text-violet-200',
+  syllabus: 'bg-indigo-400/20 text-indigo-200',
+  focus:    'bg-fuchsia-400/20 text-fuchsia-200',
+  revision: 'bg-sky-400/20 text-sky-200',
+  ia:       'bg-orange-400/20 text-orange-200',
+};
+function typeBadge(t) { return TYPE_BADGES[t] || 'bg-rose-400/20 text-rose-200'; }
 function prettyType(t) { return TYPE_LABELS[t] || t; }
+
+// ── Shared entry markup pieces ─────────────────────────────────
+const pill = (classes, text) => `<span class="text-xs px-2.5 py-1 rounded-full ${classes}">${text}</span>`;
+
+function typeStatusPills(entry) {
+  return pill(typeBadge(entry.type), prettyType(entry.type))
+       + pill(statusBadge(entry.status), entry.status);
+}
+
+// Optional week / duration / score details shared by both entry layouts
+function entryDetails(entry) {
+  return [
+    entry.week     ? { icon:'calendar-range', text: escapeHtml(entry.week) }     : null,
+    entry.duration ? { icon:'timer',          text: escapeHtml(entry.duration) } : null,
+    entry.score !== '' && entry.score !== null ? { icon:'percent', text: `${entry.score}%` } : null,
+  ].filter(Boolean);
+}
+
+function renderEntryDetails(entry, { icons }) {
+  return entryDetails(entry).map(d => icons
+    ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="${d.icon}" class="w-4 h-4"></i>${d.text}</span>`
+    : `<span>${d.text}</span>`).join('');
+}
+
+const PILL_BUTTON_TONES = {
+  emerald: 'bg-emerald-400/15 hover:bg-emerald-400/25 border border-emerald-300/20 text-emerald-100',
+  amber:   'bg-amber-400/15 hover:bg-amber-400/25 border border-amber-300/20 text-amber-100',
+};
+
+function pillButton({ attr, id, tone, icon, label, textClasses }) {
+  return `<button ${attr}="${id}" class="shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2 transition ${PILL_BUTTON_TONES[tone]} ${textClasses}"><i data-lucide="${icon}" class="w-4 h-4"></i>${label}</button>`;
+}
 
 function escapeHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -1186,7 +1276,7 @@ function escapeHtml(str) {
 
 function populateSubjectSelects() {
   const list = SUBJECTS.length > 0 ? SUBJECTS : ALL_SUBJECTS;
-  const opts = list.map(s => `<option>${s}</option>`).join('');
+  const opts = list.map(s => `<option>${escapeHtml(s)}</option>`).join('');
   els.subject.innerHTML       = opts;
   els.filterSubject.innerHTML = `<option value="all">All subjects</option>${opts}`;
 }
@@ -1200,15 +1290,17 @@ function resetFormDefaults() {
 }
 
 function filteredEntries() {
-  return [...state.entries]
-    // Only show entries whose subject is in the user's active subject list
-    .filter(e => SUBJECTS.length === 0 || SUBJECTS.includes(e.subject))
+  // Only show entries whose subject is in the user's active subject list
+  return activeEntries()
     .filter(e => els.filterType.value    === 'all' || e.type    === els.filterType.value)
     .filter(e => els.filterSubject.value === 'all' || e.subject === els.filterSubject.value)
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-function renderEmptyState(msg) {
+function renderEmptyState(msg, { compact = false } = {}) {
+  if (compact) {
+    return `<div class="rounded-2xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-300">${msg}</div>`;
+  }
   return `<div class="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-center text-slate-200/75">
     <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 mb-3">
       <i data-lucide="inbox" class="w-5 h-5"></i></div>
@@ -1217,22 +1309,19 @@ function renderEmptyState(msg) {
 
 function renderEntryCard(entry, showDone = false) {
   const doneBtn = showDone
-    ? `<button data-done-id="${entry.id}" class="shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-emerald-400/15 hover:bg-emerald-400/25 transition border border-emerald-300/20 text-emerald-100 text-sm font-medium"><i data-lucide="check" class="w-4 h-4"></i>DONE</button>`
+    ? pillButton({ attr:'data-done-id', id:entry.id, tone:'emerald', icon:'check', label:'DONE', textClasses:'text-sm font-medium' })
     : '';
   return `
     <div class="glass rounded-3xl p-4 animate-fadeUp">
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2 mb-2">
-            <span class="text-xs px-2.5 py-1 rounded-full ${typeBadge(entry.type)}">${prettyType(entry.type)}</span>
-            <span class="text-xs px-2.5 py-1 rounded-full ${statusBadge(entry.status)}">${entry.status}</span>
-            <span class="text-xs px-2.5 py-1 rounded-full bg-white/10 text-slate-100 border border-white/10">${escapeHtml(entry.subject)}</span>
+            ${typeStatusPills(entry)}
+            ${pill('bg-white/10 text-slate-100 border border-white/10', escapeHtml(entry.subject))}
           </div>
           <h3 class="font-semibold text-lg leading-snug break-words">${escapeHtml(entry.title)}</h3>
           <div class="mt-2 text-sm text-slate-200/75 flex flex-wrap gap-4">
-            ${entry.week     ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="calendar-range" class="w-4 h-4"></i>${escapeHtml(entry.week)}</span>` : ''}
-            ${entry.duration ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="timer" class="w-4 h-4"></i>${escapeHtml(entry.duration)}</span>` : ''}
-            ${entry.score !== '' && entry.score !== null ? `<span class="inline-flex items-center gap-1.5"><i data-lucide="percent" class="w-4 h-4"></i>${entry.score}%</span>` : ''}
+            ${renderEntryDetails(entry, { icons: true })}
             <span class="inline-flex items-center gap-1.5"><i data-lucide="clock-3" class="w-4 h-4"></i>${new Date(entry.createdAt).toLocaleString()}</span>
           </div>
           ${entry.notes ? `<p class="mt-3 text-sm text-slate-100/90 leading-relaxed whitespace-pre-wrap">${escapeHtml(entry.notes)}</p>` : ''}
@@ -1249,54 +1338,47 @@ function renderEntryCard(entry, showDone = false) {
 
 function renderEntries() {
   const entries = filteredEntries();
-  const inProg  = entries.filter(e => e.status !== 'done');
-  const done    = entries.filter(e => e.status === 'done');
+  const inProg  = entries.filter(e => !isDone(e));
+  const done    = entries.filter(isDone);
   els.inProgressCount.textContent = inProg.length;
   els.doneCount.textContent       = done.length;
   els.entriesInProgress.innerHTML = inProg.length ? inProg.map(e => renderEntryCard(e, true)).join('') : renderEmptyState('No in-progress entries');
   els.entriesDone.innerHTML       = done.length   ? done.map(e  => renderEntryCard(e, false)).join('') : renderEmptyState('No done entries');
-  document.querySelectorAll('[data-delete-id]').forEach(b => b.addEventListener('click', () => deleteEntry(b.dataset.deleteId)));
-  document.querySelectorAll('[data-done-id]').forEach(b   => b.addEventListener('click', () => markDone(b.dataset.doneId)));
   lucide.createIcons();
 }
 
 function renderSummary() {
-  const activeEntries = SUBJECTS.length > 0
-    ? state.entries.filter(e => SUBJECTS.includes(e.subject))
-    : state.entries;
-  const tasks    = activeEntries.filter(e => e.type==='task');
-  const syllabus = activeEntries.filter(e => e.type==='syllabus');
-  const papers   = activeEntries.filter(e => e.type==='paper');
-  const scores   = papers.map(e => Number(e.score)).filter(v => !isNaN(v) && v >= 0);
-  const avg      = scores.length ? Math.round(scores.reduce((a,b) => a+b, 0)/scores.length) : null;
-  const sylDone  = syllabus.filter(e => e.status==='done').length;
-  const sylPct   = syllabus.length ? Math.round((sylDone/syllabus.length)*100) : 0;
-  els.summaryTasksDone.textContent       = tasks.filter(e=>e.status==='done').length;
+  const entries  = activeEntries();
+  const tasks    = ofType(entries, 'task');
+  const syllabus = ofType(entries, 'syllabus');
+  const papers   = ofType(entries, 'paper');
+  const sylDone  = countDone(syllabus);
+  els.summaryTasksDone.textContent       = countDone(tasks);
   els.summaryTasksTotal.textContent      = `of ${tasks.length} tasks`;
-  els.summarySyllabusPercent.textContent = `${sylPct}%`;
+  els.summarySyllabusPercent.textContent = `${donePercent(syllabus)}%`;
   els.summarySyllabusCount.textContent   = `${sylDone} of ${syllabus.length} items complete`;
-  els.summaryPapersDone.textContent      = papers.filter(e=>e.status==='done').length;
+  els.summaryPapersDone.textContent      = countDone(papers);
   els.summaryPapersTotal.textContent     = `of ${papers.length} papers logged`;
-  els.summaryAverageScore.textContent    = avg === null ? '—' : `${avg}%`;
+  els.summaryAverageScore.textContent    = formatScore(averageScore(papers));
 }
 
 function getSubjectMetrics(subject) {
-  const se = state.entries.filter(e => e.subject === subject);
-  const completed = se.filter(e=>e.status==='done').length;
-  const total     = se.length;
-  const sylE = se.filter(e=>e.type==='syllabus');
-  const papE = se.filter(e=>e.type==='paper');
-  const scores = papE.map(e=>Number(e.score)).filter(v=>!isNaN(v)&&v>=0);
+  const se     = entriesForSubject(subject);
+  const tasks  = ofType(se, 'task');
+  const sylE   = ofType(se, 'syllabus');
+  const papE   = ofType(se, 'paper');
+  const done   = countDone(se);
   return {
-    completed, total,
-    percent:       total ? Math.round((completed/total)*100) : 0,
-    taskDone:      se.filter(e=>e.type==='task'&&e.status==='done').length,
-    taskInProgress:se.filter(e=>e.type==='task'&&e.status!=='done').length,
-    syllabusPercent: sylE.length ? Math.round((sylE.filter(e=>e.status==='done').length/sylE.length)*100) : 0,
-    papersDone:    papE.filter(e=>e.status==='done').length,
-    averageScore:  scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null,
-    inProgress:    se.filter(e=>e.status!=='done').length,
-    done:          se.filter(e=>e.status==='done').length,
+    completed:       done,
+    total:           se.length,
+    percent:         donePercent(se),
+    taskDone:        countDone(tasks),
+    taskInProgress:  tasks.length - countDone(tasks),
+    syllabusPercent: donePercent(sylE),
+    papersDone:      countDone(papE),
+    averageScore:    averageScore(papE),
+    inProgress:      se.length - done,
+    done,
   };
 }
 
@@ -1306,7 +1388,7 @@ function renderSubjectStats() {
     const m = getSubjectMetrics(subject);
     return `<button data-open-subject="${escapeHtml(subject)}" class="glass rounded-2xl p-4 text-left w-full hover:bg-white/12 transition">
       <div class="flex items-start justify-between gap-3 mb-2">
-        <div><h3 class="font-medium leading-snug">${subject}</h3>
+        <div><h3 class="font-medium leading-snug">${escapeHtml(subject)}</h3>
           <p class="text-xs text-slate-200/65 mt-1">${m.completed}/${m.total} items complete</p></div>
         <span class="text-sm font-semibold text-slate-100">${m.percent}%</span>
       </div>
@@ -1318,61 +1400,48 @@ function renderSubjectStats() {
         <span>Tasks done: ${m.taskDone}</span><span>Papers done: ${m.papersDone}</span>
       </div></button>`;
   }).join('');
-  document.querySelectorAll('[data-open-subject]').forEach(b =>
-    b.addEventListener('click', () => openSubjectModal(b.dataset.openSubject))
-  );
 }
 
 function renderModalList(entries, emptyText) {
-  if (!entries.length) return `<div class="rounded-2xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-300">${emptyText}</div>`;
+  if (!entries.length) return renderEmptyState(emptyText, { compact: true });
   return entries.map(e => `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-center gap-2 mb-2">
-            <span class="text-xs px-2.5 py-1 rounded-full ${typeBadge(e.type)}">${prettyType(e.type)}</span>
-            <span class="text-xs px-2.5 py-1 rounded-full ${statusBadge(e.status)}">${e.status}</span>
-          </div>
+          <div class="flex flex-wrap items-center gap-2 mb-2">${typeStatusPills(e)}</div>
           <h4 class="font-medium break-words">${escapeHtml(e.title)}</h4>
           <div class="mt-2 text-xs text-slate-300 flex flex-wrap gap-3">
-            ${e.week?`<span>${escapeHtml(e.week)}</span>`:''}
-            ${e.duration?`<span>${escapeHtml(e.duration)}</span>`:''}
-            ${e.score!==''&&e.score!==null?`<span>${e.score}%</span>`:''}
+            ${renderEntryDetails(e, { icons: false })}
           </div>
           ${e.notes?`<p class="mt-2 text-sm text-slate-200/80 whitespace-pre-wrap">${escapeHtml(e.notes)}</p>`:''}
         </div>
         <div class="shrink-0 flex flex-col gap-2">
-          ${e.status!=='done'
-            ? `<button data-done-id="${e.id}" class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-emerald-400/15 hover:bg-emerald-400/25 border border-emerald-300/20 text-emerald-100 text-xs font-semibold transition"><i data-lucide="check" class="w-4 h-4"></i>Done</button>`
-            : `<button data-reopen-id="${e.id}" class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-300/20 text-amber-100 text-xs font-semibold transition"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>Reopen</button>`}
+          ${isDone(e)
+            ? pillButton({ attr:'data-reopen-id', id:e.id, tone:'amber',   icon:'rotate-ccw', label:'Reopen', textClasses:'text-xs font-semibold' })
+            : pillButton({ attr:'data-done-id',   id:e.id, tone:'emerald', icon:'check',      label:'Done',   textClasses:'text-xs font-semibold' })}
         </div>
       </div>
     </div>`).join('');
 }
 
 function openSubjectModal(subject) {
-  const entries = state.entries.filter(e=>e.subject===subject).sort((a,b)=>b.createdAt-a.createdAt);
+  const entries = entriesForSubject(subject).sort((a,b)=>b.createdAt-a.createdAt);
   const m = getSubjectMetrics(subject);
   els.modalSubjectTitle.textContent = subject;
   els.modalSummaryCards.innerHTML = [
-    {label:'Average mock score',       value: m.averageScore===null?'—':`${m.averageScore}%`},
+    {label:'Average mock score',       value: formatScore(m.averageScore)},
     {label:'Weekly task in progress',  value: m.taskInProgress},
     {label:'Weekly task done',         value: m.taskDone},
     {label:'Syllabus progress',        value: `${m.syllabusPercent}%`},
     {label:'Past papers done',         value: m.papersDone},
   ].map(c=>`<div class="glass rounded-2xl p-4"><div class="text-xs text-slate-300 mb-2">${c.label}</div><div class="text-2xl font-bold">${c.value}</div></div>`).join('');
-  els.modalInProgressList.innerHTML = renderModalList(entries.filter(e=>e.status!=='done'), 'No in-progress work yet.');
-  els.modalDoneList.innerHTML       = renderModalList(entries.filter(e=>e.status==='done'),  'No completed work yet.');
-  els.subjectModal.classList.remove('hidden');
-  els.subjectModal.classList.add('flex');
-  document.body.classList.add('modal-open');
-  lucide.createIcons();
+  els.modalInProgressList.innerHTML = renderModalList(entries.filter(e=>!isDone(e)), 'No in-progress work yet.');
+  els.modalDoneList.innerHTML       = renderModalList(entries.filter(isDone),        'No completed work yet.');
+  openModal(els.subjectModal);
 }
 
 function closeSubjectModal() {
-  els.subjectModal.classList.add('hidden');
-  els.subjectModal.classList.remove('flex');
-  document.body.classList.remove('modal-open');
+  closeModal(els.subjectModal);
 }
 
 function renderAll() {
@@ -1386,31 +1455,31 @@ function renderAll() {
 // CRUD
 // ══════════════════════════════════════════════════
 
+// Persist the current state and repaint every view
+function commit() {
+  saveState();
+  renderAll();
+}
+
 function deleteEntry(id) {
   saveHistory();  // snapshot before delete so Ctrl+Z can restore it
   state.entries = state.entries.filter(e => e.id !== id);
-  saveState(); renderAll();
+  commit();
 }
 
-function markDone(id) {
-  saveHistory();  // snapshot before marking done so Ctrl+Z can restore it
+function setEntryStatus(id, status) {
+  saveHistory();  // snapshot before the change so Ctrl+Z can restore it
   const e = state.entries.find(e => e.id === id);
   if (!e) return;
-  e.status = 'done'; e.updatedAt = Date.now();
-  saveState(); renderAll();
-  if (!els.subjectModal.classList.contains('hidden') && els.modalSubjectTitle.textContent === e.subject)
+  e.status = status; e.updatedAt = Date.now();
+  commit();
+  // Keep an open subject modal in sync with the change
+  if (isModalOpen(els.subjectModal) && els.modalSubjectTitle.textContent === e.subject)
     openSubjectModal(e.subject);
 }
 
-function reopenEntry(id) {
-  saveHistory();  // snapshot before reopening so Ctrl+Z can restore it
-  const e = state.entries.find(e => e.id === id);
-  if (!e) return;
-  e.status = 'progress'; e.updatedAt = Date.now();
-  saveState(); renderAll();
-  if (!els.subjectModal.classList.contains('hidden') && els.modalSubjectTitle.textContent === e.subject)
-    openSubjectModal(e.subject);
-}
+const markDone    = id => setEntryStatus(id, 'done');
+const reopenEntry = id => setEntryStatus(id, 'progress');
 
 function addEntry(event) {
   event.preventDefault();
@@ -1425,10 +1494,9 @@ function addEntry(event) {
     status: els.status.value, notes: els.notes.value.trim(),
     createdAt: now, updatedAt: now,
   });
-  saveState();
   els.form.reset();
   resetFormDefaults();
-  renderAll();
+  commit();
 }
 
 // ══════════════════════════════════════════════════
@@ -1450,7 +1518,7 @@ function importData(file) {
       const p = JSON.parse(reader.result);
       if (!p || !Array.isArray(p.entries)) throw new Error();
       state = { entries: p.entries.map(e => ({duration:'', ...e})) };
-      saveState(); renderAll();
+      commit();
       alert('Data imported successfully.');
     } catch { alert('That file is not a valid backup.'); }
   };
@@ -1460,7 +1528,7 @@ function importData(file) {
 function seedDemo() {
   if (state.entries.length && !confirm('Replace current entries with demo data?')) return;
   state.entries = structuredClone(demoEntries);
-  saveState(); renderAll();
+  commit();
 }
 
 // ══════════════════════════════════════════════════
@@ -1478,7 +1546,7 @@ els.seedBtn.addEventListener('click', seedDemo);
 els.closeModalBtn.addEventListener('click', closeSubjectModal);
 els.subjectModal.addEventListener('click', (e) => { if (e.target===els.subjectModal) closeSubjectModal(); });
 document.addEventListener('keydown', (e) => {
-  if (e.key==='Escape' && !els.subjectModal.classList.contains('hidden')) closeSubjectModal();
+  if (e.key==='Escape' && isModalOpen(els.subjectModal)) closeSubjectModal();
   // Ctrl+Z (Windows/Linux) or Cmd+Z (Mac) — undo last destructive action
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
     // Don't intercept Ctrl+Z inside text inputs — let the browser handle it
@@ -1488,9 +1556,19 @@ document.addEventListener('keydown', (e) => {
     undo();
   }
 });
+// One delegated handler drives every rendered entry / subject action, so the
+// render functions never have to re-bind listeners.
+const DELEGATED_ACTIONS = [
+  ['data-delete-id',    'deleteId',     id => deleteEntry(id)],
+  ['data-done-id',      'doneId',       id => markDone(id)],
+  ['data-reopen-id',    'reopenId',     id => reopenEntry(id)],
+  ['data-open-subject', 'openSubject',  subject => openSubjectModal(subject)],
+];
 document.addEventListener('click', (e) => {
-  const d = e.target.closest('[data-done-id]');   if (d) { markDone(d.dataset.doneId); return; }
-  const r = e.target.closest('[data-reopen-id]'); if (r) reopenEntry(r.dataset.reopenId);
+  for (const [attr, dataKey, handler] of DELEGATED_ACTIONS) {
+    const target = e.target.closest(`[${attr}]`);
+    if (target) { handler(target.dataset[dataKey]); return; }
+  }
 });
 
 // ── Kick off Lucide icons on the auth screen ─────────────────
